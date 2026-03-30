@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore, LoadedFile } from "../store/useAppStore";
+import { useNotesStore, PageTemplate, VirtualPage } from "../store/useNotesStore";
+
+const EMPTY_VIRTUAL_PAGES: VirtualPage[] = [];
 import { usePageThumbnails } from "../hooks/usePageThumbnails";
 import { PageStrip } from "./PageStrip";
 import { ToolSidebar, ViewerTool } from "./ToolSidebar";
@@ -8,6 +11,7 @@ import { getPdfInfo, copyFile, showSaveDialog } from "../lib/tauri";
 import { triggerPrint } from "./tools/PrintPanel";
 import { evictPathFromThumbnailCache } from "../hooks/usePageThumbnails";
 import { DrawingCanvas } from "./DrawingCanvas";
+import { VirtualPageBackground } from "./VirtualPageBackground";
 
 export default function Viewer() {
   const navigate = useNavigate();
@@ -25,6 +29,13 @@ export default function Viewer() {
   const [splitAfter, setSplitAfter] = useState(() =>
     Math.max(1, Math.floor((viewerFile?.info?.page_count ?? 2) / 2))
   );
+  const undoStroke = useNotesStore((s) => s.undoStroke);
+  const virtualPages = useNotesStore((s) => s.virtualPages[viewerFile?.path ?? ""] ?? EMPTY_VIRTUAL_PAGES);
+  const addVirtualPage = useNotesStore((s) => s.addVirtualPage);
+
+  // "Add page" inline UI: which insertion point is open (afterRealPage value)
+  const [addPageAt, setAddPageAt] = useState<number | null>(null);
+
   const [zoom, setZoom] = useState(1.0);
   const [showStrip, setShowStrip] = useState(false);
   const [showTools, setShowTools] = useState(false);
@@ -51,6 +62,27 @@ export default function Viewer() {
   }
 
   const pageCount = viewerFile?.info?.page_count ?? 0;
+
+  // Merged ordered list of real PDF pages + inserted virtual pages
+  type PageSlot =
+    | { type: 'pdf'; pdfPage: number; slotId: string }
+    | { type: 'virtual'; vp: VirtualPage; slotId: string };
+
+  const pageSlots = useMemo<PageSlot[]>(() => {
+    const slots: PageSlot[] = [];
+    const clampedVPs = virtualPages.map((vp) => ({
+      ...vp,
+      afterRealPage: Math.min(vp.afterRealPage, pageCount),
+    }));
+    clampedVPs.filter((vp) => vp.afterRealPage === 0)
+      .forEach((vp) => slots.push({ type: 'virtual', vp, slotId: vp.id }));
+    for (let p = 1; p <= pageCount; p++) {
+      slots.push({ type: 'pdf', pdfPage: p, slotId: `pdf-${p}` });
+      clampedVPs.filter((vp) => vp.afterRealPage === p)
+        .forEach((vp) => slots.push({ type: 'virtual', vp, slotId: vp.id }));
+    }
+    return slots;
+  }, [virtualPages, pageCount]);
 
   const stripThumbnails = usePageThumbnails(viewerFile?.path ?? null, pageCount, 0.3);
   const centerThumbnails = usePageThumbnails(viewerFile?.path ?? null, pageCount, 2.0);
@@ -135,6 +167,11 @@ export default function Viewer() {
       }
       if (mod && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
         e.preventDefault();
+        // In draw mode, Ctrl+Z undoes the last stroke
+        if (activeTool === "draw" && viewerFile) {
+          undoStroke(viewerFile.path);
+          return;
+        }
         if (undoViewerFile) {
           setViewerFile(undoViewerFile);
           setUndoViewerFile(null);
@@ -162,7 +199,7 @@ export default function Viewer() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isViewerDirty, confirmingBack, currentPage, pageCount, viewerFile, undoViewerFile, originalViewerPath, zoom]);
+  }, [isViewerDirty, confirmingBack, currentPage, pageCount, viewerFile, undoViewerFile, originalViewerPath, zoom, activeTool, undoStroke]);
 
   if (!viewerFile) return null;
 
@@ -494,7 +531,7 @@ export default function Viewer() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left: page strip — always visible on desktop, slide-in drawer on mobile */}
         <div
-          className={`flex-col ${
+          className={`h-full flex-col ${
             showStrip
               ? "flex absolute inset-y-0 left-0 z-20 sm:static sm:flex"
               : "hidden sm:flex"
@@ -520,85 +557,174 @@ export default function Viewer() {
           style={{ background: "var(--viewer-canvas)" }}
           onScroll={handleScroll}
         >
-          <div className="flex flex-col items-center py-4 px-4 gap-4 sm:py-8 sm:px-8 sm:gap-8">
-            {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => {
-              const isSelected = activeTool === "remove" && selectedPages.has(page);
-              return (
+          <div className="flex flex-col items-center py-4 px-4 gap-0 sm:py-8 sm:px-8">
+
+            {/* Inline "Add page" template picker */}
+            {addPageAt !== null && activeTool === "draw" && (
+              <div
+                className="fixed inset-0 z-30 flex items-center justify-center"
+                style={{ background: "rgba(0,0,0,0.3)" }}
+                onClick={() => setAddPageAt(null)}
+              >
                 <div
-                  key={page}
-                  ref={(el) => { pageRefs.current[page] = el; }}
-                  className="relative"
+                  className="flex flex-col gap-3 rounded-xl px-5 py-4 w-72"
                   style={{
-                    width: `min(${Math.round(zoom * 768)}px, 100%)`,
-                    cursor: activeTool === "remove" ? "pointer" : undefined,
+                    background: "var(--viewer-elevated)",
+                    border: "1px solid var(--viewer-border)",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
                   }}
-                  onClick={activeTool === "remove" ? () => handlePageToggle(page) : undefined}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {centerThumbnails[page] ? (
-                    <img
-                      src={centerThumbnails[page]}
-                      alt={`Page ${page}`}
-                      className="w-full rounded shadow-2xl block"
-                      draggable={false}
-                      style={isSelected ? { outline: "3px solid #ef4444", borderRadius: "0.5rem" } : undefined}
-                    />
-                  ) : (
+                  <p className="text-sm font-semibold" style={{ color: "var(--viewer-text)" }}>
+                    Insert page {addPageAt === 0 ? "before start" : `after page ${addPageAt}`}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { id: 'blank',  label: 'Blank',  preview: '□' },
+                      { id: 'ruled',  label: 'Ruled',  preview: '≡' },
+                      { id: 'grid',   label: 'Grid',   preview: '⊞' },
+                      { id: 'dotted', label: 'Dotted', preview: '⠿' },
+                    ] as { id: PageTemplate; label: string; preview: string }[]).map((tmpl) => (
+                      <button
+                        key={tmpl.id}
+                        onClick={() => {
+                          const vp: VirtualPage = {
+                            id: crypto.randomUUID(),
+                            template: tmpl.id,
+                            afterRealPage: addPageAt,
+                          };
+                          addVirtualPage(viewerFile.path, vp);
+                          setAddPageAt(null);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm"
+                        style={{
+                          background: "var(--viewer-surface)",
+                          border: "1px solid var(--viewer-border)",
+                          color: "var(--viewer-text)",
+                        }}
+                      >
+                        <span className="text-lg leading-none">{tmpl.preview}</span>
+                        <span>{tmpl.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setAddPageAt(null)}
+                    className="text-xs text-center mt-1"
+                    style={{ color: "var(--viewer-text-muted)" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Add-page bar before all pages */}
+            {activeTool === "draw" && (
+              <AddPageBar onAdd={() => setAddPageAt(0)} />
+            )}
+
+            {pageSlots.map((slot) => {
+              if (slot.type === 'pdf') {
+                const page = slot.pdfPage;
+                const isSelected = activeTool === "remove" && selectedPages.has(page);
+                return (
+                  <React.Fragment key={slot.slotId}>
                     <div
-                      className="aspect-3/4 rounded flex flex-col items-center justify-center gap-2"
+                      ref={(el) => { pageRefs.current[page] = el; }}
+                      className="relative my-4 sm:my-8"
                       style={{
-                        background: "color-mix(in oklch, var(--viewer-elevated) 60%, transparent)",
-                        border: isSelected ? "3px solid #ef4444" : "1px solid var(--viewer-border-sub)",
+                        width: `min(${Math.round(zoom * 768)}px, 100%)`,
+                        cursor: activeTool === "remove" ? "pointer" : undefined,
+                      }}
+                      onClick={activeTool === "remove" ? () => handlePageToggle(page) : undefined}
+                    >
+                      {centerThumbnails[page] ? (
+                        <img
+                          src={centerThumbnails[page]}
+                          alt={`Page ${page}`}
+                          className="w-full rounded shadow-2xl block"
+                          draggable={false}
+                          style={isSelected ? { outline: "3px solid #ef4444", borderRadius: "0.5rem" } : undefined}
+                        />
+                      ) : (
+                        <div
+                          className="aspect-3/4 rounded flex flex-col items-center justify-center gap-2"
+                          style={{
+                            background: "color-mix(in oklch, var(--viewer-elevated) 60%, transparent)",
+                            border: isSelected ? "3px solid #ef4444" : "1px solid var(--viewer-border-sub)",
+                          }}
+                        >
+                          <svg className="w-8 h-8" style={{ color: "var(--viewer-text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
+                              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          <span className="text-xs" style={{ color: "var(--viewer-text-muted)" }}>Page {page}</span>
+                        </div>
+                      )}
+                      {isSelected && (
+                        <div className="absolute inset-0 rounded flex items-center justify-center pointer-events-none"
+                          style={{ background: "rgba(239, 68, 68, 0.25)" }}>
+                          <div className="rounded-full p-2" style={{ background: "rgba(239, 68, 68, 0.85)" }}>
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                      <DrawingCanvas
+                        pageSlotId={slot.slotId}
+                        docPath={viewerFile.path}
+                        isDrawingMode={activeTool === "draw"}
+                        zoom={zoom}
+                      />
+                    </div>
+                    {/* Add-page bar after this real page */}
+                    {activeTool === "draw" && (
+                      <AddPageBar onAdd={() => setAddPageAt(page)} />
+                    )}
+                  </React.Fragment>
+                );
+              } else {
+                // Virtual page
+                const vp = slot.vp;
+                const pageW = Math.round(zoom * 768);
+                const pageH = Math.round(pageW * 1.4142); // A4 ratio
+                return (
+                  <div
+                    key={slot.slotId}
+                    className="relative my-4 sm:my-8 rounded shadow-2xl overflow-hidden"
+                    style={{ width: `min(${pageW}px, 100%)`, aspectRatio: `${pageW}/${pageH}` }}
+                  >
+                    <VirtualPageBackground
+                      template={vp.template}
+                      width={pageW}
+                      height={pageH}
+                    />
+                    <DrawingCanvas
+                      pageSlotId={slot.slotId}
+                      docPath={viewerFile.path}
+                      isDrawingMode={activeTool === "draw"}
+                      zoom={zoom}
+                    />
+                    {/* Label */}
+                    <div
+                      className="absolute top-2 right-2 text-xs px-1.5 py-0.5 rounded pointer-events-none"
+                      style={{
+                        background: "rgba(0,0,0,0.12)",
+                        color: "#888",
+                        textTransform: "capitalize",
                       }}
                     >
-                      <svg
-                        className="w-8 h-8"
-                        style={{ color: "var(--viewer-text-muted)" }}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1}
-                          d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span className="text-xs" style={{ color: "var(--viewer-text-muted)" }}>
-                        Page {page}
-                      </span>
+                      {vp.template}
                     </div>
-                  )}
-
-                  {/* Selection overlay */}
-                  {isSelected && (
-                    <div
-                      className="absolute inset-0 rounded flex items-center justify-center pointer-events-none"
-                      style={{ background: "rgba(239, 68, 68, 0.25)" }}
-                    >
-                      <div
-                        className="rounded-full p-2"
-                        style={{ background: "rgba(239, 68, 68, 0.85)" }}
-                      >
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Drawing overlay */}
-                  <DrawingCanvas
-                    pageIndex={page}
-                    docPath={viewerFile.path}
-                    isDrawingMode={activeTool === "draw"}
-                    zoom={zoom}
-                  />
-                </div>
-              );
+                  </div>
+                );
+              }
             })}
+
             {pageCount === 0 && (
-              <p className="text-sm" style={{ color: "var(--viewer-text-muted)" }}>
+              <p className="text-sm my-8" style={{ color: "var(--viewer-text-muted)" }}>
                 No pages found
               </p>
             )}
@@ -607,7 +733,7 @@ export default function Viewer() {
 
         {/* Right: tool sidebar — always visible on desktop, slide-in drawer on mobile */}
         <div
-          className={`flex-col ${
+          className={`h-full flex-col ${
             showTools
               ? "flex absolute inset-y-0 right-0 z-20 sm:static sm:flex"
               : "hidden sm:flex"
@@ -625,6 +751,27 @@ export default function Viewer() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function AddPageBar({ onAdd }: { onAdd: () => void }) {
+  return (
+    <div className="group flex items-center justify-center w-full" style={{ height: "28px", position: "relative" }}>
+      <button
+        onClick={onAdd}
+        className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{
+          background: "var(--brand)",
+          color: "#fff",
+          boxShadow: "0 1px 6px rgba(0,0,0,0.2)",
+        }}
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+        </svg>
+        Add page here
+      </button>
     </div>
   );
 }

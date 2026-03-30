@@ -174,7 +174,7 @@ export function ToolSidebar({ file, onApplied, activeTool, onToolChange, selecte
 
   return (
     <div
-      className="w-72 shrink-0 flex flex-col overflow-hidden"
+      className="w-72 h-full shrink-0 flex flex-col overflow-hidden"
       style={{
         background: "var(--viewer-surface)",
         borderLeft: "1px solid var(--viewer-border)",
