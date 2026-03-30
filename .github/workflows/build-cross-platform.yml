@@ -7,64 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-arch:
-    name: Build (Arch Linux)
-    runs-on: ubuntu-24.04
-    container: archlinux:latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Install system dependencies
-        run: |
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm \
-            base-devel \
-            webkit2gtk-4.1 \
-            curl \
-            wget \
-            file \
-            openssl \
-            libayatana-appindicator \
-            librsvg \
-            patchelf \
-            nodejs \
-            npm \
-            rust \
-            cargo \
-            git
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build Tauri App (pacman bundle)
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: ${{ github.ref_type == 'tag' && format('NotAcrobat {0}', github.ref_name) || '' }}
-          releaseBody: 'Cross-platform build for NotAcrobat.'
-          releaseDraft: ${{ github.ref_type == 'tag' }}
-          prerelease: false
-          args: '--bundles pacman'
-
-      - name: Upload build artifacts (Arch)
-        uses: actions/upload-artifact@v4
-        with:
-          name: notacrobat-arch
-          path: src-tauri/target/release/bundle/pacman/*.pkg.tar.zst
-          if-no-files-found: warn
-          retention-days: 30
-
   build:
     permissions:
       contents: write
@@ -98,7 +40,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            rpm
+            rpm \
+            libfuse2t64
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -128,6 +71,23 @@ jobs:
           releaseDraft: ${{ github.ref_type == 'tag' }}
           prerelease: false
           args: ${{ matrix.args }}
+
+      # Strip bundled libwayland from AppImage so it uses the system version on Arch/Wayland.
+      # The AppImage bundles its own libwayland-client.so which conflicts with the system's
+      # newer version, causing EGL_BAD_PARAMETER crashes on Hyprland and other Wayland compositors.
+      - name: Strip bundled libwayland from AppImage
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          APPIMAGE=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          [ -z "$APPIMAGE" ] && exit 0
+          APPIMAGE=$(realpath "$APPIMAGE")
+          chmod +x "$APPIMAGE"
+          "$APPIMAGE" --appimage-extract > /dev/null
+          find squashfs-root -name "libwayland*.so*" -delete
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run squashfs-root "$APPIMAGE"
+          rm -rf squashfs-root appimagetool
 
       # Always upload artifacts so they're never lost
       - name: Upload build artifacts (Windows)

@@ -9,26 +9,11 @@ Grab the latest build from [Releases](../../releases) or the **Artifacts** secti
 | Platform | Formats |
 |----------|---------|
 | Windows  | `.msi`, `.exe` (NSIS) |
-| Linux (Debian/Ubuntu) | `.deb` |
-| Linux (Fedora/RHEL) | `.rpm` |
-| Linux (Arch/Hyprland) | `.pkg.tar.zst` |
-| Linux (other) | `.AppImage` |
+| Linux    | `.deb`, `.rpm`, `.AppImage` |
 
-## Linux: AppImage on Wayland
+## Linux on Wayland (Arch, Hyprland, etc.)
 
-If you're on a non-Arch distro and must use the AppImage, you may hit:
-
-```
-Could not create default EGL display: EGL_BAD_PARAMETER
-```
-
-Fix it by preloading your system's libwayland:
-
-```bash
-LD_PRELOAD=/usr/lib/libwayland-client.so ./notacrobat_*.AppImage
-```
-
-> **Arch/Hyprland users:** Use the `.pkg.tar.zst` instead — it links against your system libraries and works natively on Wayland with no workarounds needed.
+The AppImage is pre-patched to use your system's `libwayland-client.so` instead of the bundled copy, and the app disables WebKitGTK's DMA-buf renderer at startup. Both fixes are baked in — no `LD_PRELOAD` or env var workarounds needed.
 
 ## Development
 
