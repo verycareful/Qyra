@@ -7,6 +7,64 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-arch:
+    name: Build (Arch Linux)
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            base-devel \
+            webkit2gtk-4.1 \
+            curl \
+            wget \
+            file \
+            openssl \
+            libayatana-appindicator \
+            librsvg \
+            patchelf \
+            nodejs \
+            npm \
+            rust \
+            cargo \
+            git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build Tauri App (pacman bundle)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_type == 'tag' && format('NotAcrobat {0}', github.ref_name) || '' }}
+          releaseBody: 'Cross-platform build for NotAcrobat.'
+          releaseDraft: ${{ github.ref_type == 'tag' }}
+          prerelease: false
+          args: '--bundles pacman'
+
+      - name: Upload build artifacts (Arch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: notacrobat-arch
+          path: src-tauri/target/release/bundle/pacman/*.pkg.tar.zst
+          if-no-files-found: warn
+          retention-days: 30
+
   build:
     permissions:
       contents: write
@@ -40,7 +98,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libvips-dev
+            rpm
 
       - name: Setup Node
         uses: actions/setup-node@v4

@@ -2,5 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    {
+        // WebKitGTK's DMA-buf renderer conflicts with Hyprland and other Wayland compositors.
+        // Disabling it prevents black windows and crashes on Wayland.
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
     notacrobat_lib::run()
 }
