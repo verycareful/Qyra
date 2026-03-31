@@ -87,23 +87,17 @@ jobs:
 
           # Patch AppRun to auto-set LD_PRELOAD on systems with system libwayland (e.g. Arch + Hyprland)
           if [ -f "squashfs-root/AppRun" ]; then
-            python3 << 'PYEOF'
-with open('squashfs-root/AppRun', 'r') as f:
-    content = f.read()
-inject = (
-    '# Auto-preload system libwayland if available (fixes Arch/Hyprland EGL crashes)\n'
-    'if [ -f "/usr/lib/libwayland-client.so" ]; then\n'
-    '  export LD_PRELOAD="/usr/lib/libwayland-client.so${LD_PRELOAD:+:$LD_PRELOAD}"\n'
-    'fi\n'
-)
-lines = content.split('\n', 1)
-if lines[0].startswith('#!'):
-    content = lines[0] + '\n' + inject + (lines[1] if len(lines) > 1 else '')
-else:
-    content = inject + content
-with open('squashfs-root/AppRun', 'w') as f:
-    f.write(content)
-PYEOF
+            printf '%s\n' \
+              '# Auto-preload system libwayland if available (fixes Arch/Hyprland EGL crashes)' \
+              'if [ -f "/usr/lib/libwayland-client.so" ]; then' \
+              '  export LD_PRELOAD="/usr/lib/libwayland-client.so${LD_PRELOAD:+:$LD_PRELOAD}"' \
+              'fi' > /tmp/wayland_inject.txt
+            if head -1 squashfs-root/AppRun | grep -q '^#!'; then
+              { head -1 squashfs-root/AppRun; cat /tmp/wayland_inject.txt; tail -n +2 squashfs-root/AppRun; } > squashfs-root/AppRun.tmp
+            else
+              { cat /tmp/wayland_inject.txt; cat squashfs-root/AppRun; } > squashfs-root/AppRun.tmp
+            fi
+            mv squashfs-root/AppRun.tmp squashfs-root/AppRun
           fi
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
