@@ -84,6 +84,27 @@ jobs:
           chmod +x "$APPIMAGE"
           "$APPIMAGE" --appimage-extract > /dev/null
           find squashfs-root -name "libwayland*.so*" -delete
+
+          # Patch AppRun to auto-set LD_PRELOAD on systems with system libwayland (e.g. Arch + Hyprland)
+          if [ -f "squashfs-root/AppRun" ]; then
+            python3 << 'PYEOF'
+with open('squashfs-root/AppRun', 'r') as f:
+    content = f.read()
+inject = (
+    '# Auto-preload system libwayland if available (fixes Arch/Hyprland EGL crashes)\n'
+    'if [ -f "/usr/lib/libwayland-client.so" ]; then\n'
+    '  export LD_PRELOAD="/usr/lib/libwayland-client.so${LD_PRELOAD:+:$LD_PRELOAD}"\n'
+    'fi\n'
+)
+lines = content.split('\n', 1)
+if lines[0].startswith('#!'):
+    content = lines[0] + '\n' + inject + (lines[1] if len(lines) > 1 else '')
+else:
+    content = inject + content
+with open('squashfs-root/AppRun', 'w') as f:
+    f.write(content)
+PYEOF
+          fi
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run squashfs-root "$APPIMAGE"

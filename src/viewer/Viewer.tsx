@@ -7,11 +7,12 @@ const EMPTY_VIRTUAL_PAGES: VirtualPage[] = [];
 import { usePageThumbnails } from "../hooks/usePageThumbnails";
 import { PageStrip } from "./PageStrip";
 import { ToolSidebar, ViewerTool } from "./ToolSidebar";
-import { getPdfInfo, copyFile, showSaveDialog } from "../lib/tauri";
+import { getPdfInfo, copyFile, showSaveDialog, bakeAnnotations } from "../lib/tauri";
 import { triggerPrint } from "./tools/PrintPanel";
 import { evictPathFromThumbnailCache } from "../hooks/usePageThumbnails";
 import { DrawingCanvas } from "./DrawingCanvas";
 import { VirtualPageBackground } from "./VirtualPageBackground";
+import { DrawToolbar } from "./tools/DrawToolbar";
 
 export default function Viewer() {
   const navigate = useNavigate();
@@ -304,6 +305,84 @@ export default function Viewer() {
     }
   }
 
+  async function handleSaveAnnotations() {
+    if (!viewerFile || !originalViewerPath) return;
+    setSaveError(null);
+
+    const allStrokes = useNotesStore.getState().strokes[viewerFile.path] ?? [];
+    const byPage = new Map<number, typeof allStrokes>();
+    for (const s of allStrokes) {
+      if (!s.pageSlotId.startsWith('pdf-')) continue;
+      const page = parseInt(s.pageSlotId.slice(4), 10);
+      if (isNaN(page)) continue;
+      if (!byPage.has(page)) byPage.set(page, []);
+      byPage.get(page)!.push(s);
+    }
+
+    try {
+      let savePath = viewerFile.path;
+      if (byPage.size > 0) {
+        const annotations = Array.from(byPage.entries()).map(([page, strokes]) => ({
+          page,
+          strokes: strokes.map(s => ({
+            tool: s.tool,
+            color: s.color,
+            thickness: s.baseThickness,
+            points: s.points.map(([x, y]) => [x, y] as [number, number]),
+          })),
+        }));
+        savePath = await bakeAnnotations(viewerFile.path, annotations);
+      }
+      await copyFile(savePath, originalViewerPath);
+      evictPathFromThumbnailCache(originalViewerPath);
+      // Don't clear strokes — they stay as overlay while thumbnails reload in the background
+      setViewerFile({ ...viewerFile, path: originalViewerPath });
+      setIsViewerDirty(false);
+    } catch (e) {
+      setSaveError(friendlySaveError(e));
+    }
+  }
+
+  async function handleSaveAsAnnotations() {
+    if (!viewerFile) return;
+    setSaveError(null);
+    const chosenPath = await showSaveDialog(viewerFile.path);
+    if (!chosenPath) return;
+
+    const allStrokes = useNotesStore.getState().strokes[viewerFile.path] ?? [];
+    const byPage = new Map<number, typeof allStrokes>();
+    for (const s of allStrokes) {
+      if (!s.pageSlotId.startsWith('pdf-')) continue;
+      const page = parseInt(s.pageSlotId.slice(4), 10);
+      if (isNaN(page)) continue;
+      if (!byPage.has(page)) byPage.set(page, []);
+      byPage.get(page)!.push(s);
+    }
+
+    try {
+      let savePath = viewerFile.path;
+      if (byPage.size > 0) {
+        const annotations = Array.from(byPage.entries()).map(([page, strokes]) => ({
+          page,
+          strokes: strokes.map(s => ({
+            tool: s.tool,
+            color: s.color,
+            thickness: s.baseThickness,
+            points: s.points.map(([x, y]) => [x, y] as [number, number]),
+          })),
+        }));
+        savePath = await bakeAnnotations(viewerFile.path, annotations);
+      }
+      await copyFile(savePath, chosenPath);
+      evictPathFromThumbnailCache(chosenPath);
+      setViewerFile({ ...viewerFile, path: chosenPath });
+      setOriginalViewerPath(chosenPath);
+      setIsViewerDirty(false);
+    } catch (e) {
+      setSaveError(friendlySaveError(e));
+    }
+  }
+
   return (
     <div
       className="flex flex-col h-screen overflow-hidden"
@@ -368,7 +447,7 @@ export default function Viewer() {
           <button
             onClick={() => adjustZoom(-0.25)}
             className="v-icon-btn p-1.5 sm:p-1 rounded"
-            title="Zoom out (⌘-)"
+            title="Zoom out (Ctrl+-)"
             disabled={zoom <= 0.25}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,14 +458,14 @@ export default function Viewer() {
             onClick={() => setZoom(1.0)}
             className="text-xs tabular-nums px-1.5 py-0.5 rounded"
             style={{ color: "var(--viewer-text-muted)", minWidth: "3rem" }}
-            title="Reset zoom (⌘0)"
+            title="Reset zoom (Ctrl+0)"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={() => adjustZoom(0.25)}
             className="v-icon-btn p-1.5 sm:p-1 rounded"
-            title="Zoom in (⌘=)"
+            title="Zoom in (Ctrl+=)"
             disabled={zoom >= 3.0}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -405,7 +484,7 @@ export default function Viewer() {
               setCurrentPage(1);
             }}
             className="v-btn-secondary-sm text-xs px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg flex items-center gap-1 sm:gap-1.5 shrink-0"
-            title="Undo last operation (⌘Z)"
+            title="Undo last operation (Ctrl+Z)"
           >
             <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -421,18 +500,18 @@ export default function Viewer() {
             <button
               onClick={handleSave}
               className="v-btn-primary-sm text-xs px-3 py-2 sm:py-1.5 rounded-lg font-medium flex items-center gap-1.5"
-              title="Save (⌘S)"
+              title="Save (Ctrl+S)"
             >
               Save
-              <kbd className="text-xs opacity-60 hidden sm:inline" style={{ fontFamily: "inherit" }}>⌘S</kbd>
+              <kbd className="text-xs opacity-60 hidden sm:inline" style={{ fontFamily: "inherit" }}>Ctrl+S</kbd>
             </button>
             <button
               onClick={handleSaveAs}
               className="v-btn-secondary-sm text-xs px-3 py-2 sm:py-1.5 rounded-lg hidden sm:flex items-center gap-1.5"
-              title="Save As (⌘⇧S)"
+              title="Save As (Ctrl+Shift+S)"
             >
               Save As
-              <kbd className="text-xs opacity-50" style={{ fontFamily: "inherit" }}>⌘⇧S</kbd>
+              <kbd className="text-xs opacity-50" style={{ fontFamily: "inherit" }}>Ctrl+Shift+S</kbd>
             </button>
           </div>
         )}
@@ -525,6 +604,19 @@ export default function Viewer() {
             Dismiss
           </button>
         </div>
+      )}
+
+      {/* Draw toolbar — shown when draw mode is active */}
+      {activeTool === "draw" && (
+        <DrawToolbar
+          onExitDraw={() => handleToolChange(null)}
+          onSave={handleSaveAnnotations}
+          onSaveAs={handleSaveAsAnnotations}
+          currentPage={currentPage}
+          pageCount={pageCount}
+          onApplied={handleApplied}
+          filePath={viewerFile.path}
+        />
       )}
 
       {/* Three-panel body */}
@@ -731,12 +823,14 @@ export default function Viewer() {
           </div>
         </div>
 
-        {/* Right: tool sidebar — always visible on desktop, slide-in drawer on mobile */}
+        {/* Right: tool sidebar — hidden in draw mode (toolbar handles everything) */}
         <div
           className={`h-full flex-col ${
-            showTools
-              ? "flex absolute inset-y-0 right-0 z-20 sm:static sm:flex"
-              : "hidden sm:flex"
+            activeTool === "draw"
+              ? "hidden"
+              : showTools
+                ? "flex absolute inset-y-0 right-0 z-20 sm:static sm:flex"
+                : "hidden sm:flex"
           }`}
         >
           <ToolSidebar

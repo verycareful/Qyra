@@ -33,6 +33,7 @@ pub fn run() {
             files::show_in_folder,
             files::write_bytes,
             files::get_content_uri_display_name,
+            annotate::bake_annotations,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -12,3 +12,4 @@ pub mod unlock;
 pub mod metadata;
 pub mod files;
 pub mod print;
+pub mod annotate;

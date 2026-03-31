@@ -109,3 +109,18 @@ export const pickDirectory = () =>
 
 export const getContentUriDisplayName = (uri: string) =>
   invoke<string>("get_content_uri_display_name", { uri });
+
+export interface StrokeAnnotation {
+  tool: string;
+  color: string;
+  thickness: number;
+  points: [number, number][];
+}
+
+export interface PageAnnotation {
+  page: number;
+  strokes: StrokeAnnotation[];
+}
+
+export const bakeAnnotations = (path: string, annotations: PageAnnotation[], output?: string) =>
+  invoke<string>("bake_annotations", { path, annotations, output });
