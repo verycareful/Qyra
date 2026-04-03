@@ -29,6 +29,7 @@ export function TextLayer({ pdfPath, pageNum, zoom, findQuery, isDrawingMode }: 
     let renderTask: PdfjsTextLayer | null = null;
 
     async function go() {
+      if (!el) return;
       try {
         const doc = await loadDocument(pdfPath);
         if (cancelled) return;
