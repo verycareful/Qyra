@@ -13,7 +13,7 @@ interface RecentFile {
   openedAt: number;
 }
 
-const RECENT_KEY = "quire-recent";
+const RECENT_KEY = "qyra-recent";
 const MAX_RECENT = 8;
 
 function loadRecent(): RecentFile[] {
@@ -165,7 +165,7 @@ export default function Home() {
                 className="font-bold text-sm tracking-tight"
                 style={{ color: "var(--text-primary)" }}
               >
-                Quire
+                Qyra
               </span>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Free · Offline · Open Source

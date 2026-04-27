@@ -8,7 +8,7 @@ use std::time::SystemTime;
 /// Per-session disk cache for rendered thumbnails and other transient data.
 ///
 /// The cache lives in a subdirectory under the OS temp folder:
-///   `<temp>/quire-session-<pid>/`
+///   `<temp>/qyra-session-<pid>/`
 ///
 /// It is automatically created on first use and cleaned up when the app exits
 /// (via the `Drop` impl on SessionCacheState). Nothing survives across restarts,
@@ -25,7 +25,7 @@ pub struct SessionCacheState {
 
 impl SessionCacheState {
     pub fn new() -> Self {
-        let root = std::env::temp_dir().join(format!("quire-session-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("qyra-session-{}", std::process::id()));
         fs::create_dir_all(&root).ok();
         Self {
             root,

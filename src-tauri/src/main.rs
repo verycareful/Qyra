@@ -9,5 +9,5 @@ fn main() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
         std::env::set_var("LD_PRELOAD", "/usr/lib/libwayland-client.so");
     }
-    quire_lib::run()
+    qyra_lib::run()
 }

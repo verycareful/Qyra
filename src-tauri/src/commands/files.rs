@@ -113,7 +113,7 @@ pub fn share_file(path: String, app_handle: tauri::AppHandle) -> Result<(), Stri
             .new_object("java/io/File", "(Ljava/lang/String;)V", &[JValue::Object(&j_path)])
             .map_err(|e| e.to_string())?;
         let authority = env
-            .new_string("com.parik.quire.fileprovider")
+            .new_string("com.parik.qyra.fileprovider")
             .map_err(|e| e.to_string())?;
         let uri = env
             .call_static_method("androidx/core/content/FileProvider", "getUriForFile",

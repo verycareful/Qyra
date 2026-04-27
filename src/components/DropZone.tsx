@@ -19,8 +19,7 @@ export function DropZone({ accept = [".pdf"], multiple = true, label }: DropZone
       const name = path.split(/[\\/]/).pop() ?? path;
       try {
         const info = await getPdfInfo(path);
-        const file: LoadedFile = { path, name, info };
-        addFile(file);
+        addFile({ path, name, info });
       } catch {
         // Still add file even if info fetch fails
         addFile({ path, name });

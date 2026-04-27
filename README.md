@@ -1,4 +1,4 @@
-# Quire
+# Qyra
 
 The free, offline, open-source PDF Swiss Army Knife. Built with Tauri + React + TypeScript.
 
@@ -13,7 +13,7 @@ Grab the latest build from [Releases](../../releases) or the **Artifacts** secti
 
 ## Linux on Wayland (Arch, Hyprland, etc.)
 
-The AppImage is pre-patched to use your system's `libwayland-client.so` instead of the bundled copy, and the app disables WebKitGTK's DMA-buf renderer at startup. If there are issues, try `LD_PRELOAD=/usr/lib/libwayland-client.so Quire.appimage`.
+The AppImage is pre-patched to use your system's `libwayland-client.so` instead of the bundled copy, and the app disables WebKitGTK's DMA-buf renderer at startup. If there are issues, try `LD_PRELOAD=/usr/lib/libwayland-client.so Qyra.appimage`.
 
 
 ## Development

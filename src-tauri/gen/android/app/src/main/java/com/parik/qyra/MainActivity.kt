@@ -1,4 +1,4 @@
-package com.parik.quire
+package com.parik.qyra
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
