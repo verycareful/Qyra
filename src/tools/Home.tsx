@@ -303,7 +303,7 @@ function DropHero({ drag, onDragOver, onDragLeave, onDrop, onClick, loading }: {
         background: drag ? "var(--accent-soft)" : "var(--bg1)",
         transition: "all 120ms ease",
         padding: "36px 32px",
-        display: "grid", gridTemplateColumns: "1fr auto",
+        display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto",
         gap: 24, alignItems: "center", minHeight: 196,
       }}
     >
@@ -316,7 +316,7 @@ function DropHero({ drag, onDragOver, onDragLeave, onDrop, onClick, loading }: {
         background: "repeating-linear-gradient(45deg, transparent 0 11px, var(--fg1) 11px 12px)",
       }} />
 
-      <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 }}>
+      <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
         <div style={{ fontFamily: MONO, fontSize: 10.5, color: drag ? "var(--accent)" : "var(--fg2)", letterSpacing: 1, textTransform: "uppercase" }}>
           {drag ? "◆ Release to import" : "◇ Drop zone · idle"}
         </div>
@@ -327,7 +327,7 @@ function DropHero({ drag, onDragOver, onDragLeave, onDrop, onClick, loading }: {
           Drop a PDF here{" "}
           <span style={{ color: "var(--fg2)" }}>or pick from your files.</span>
         </h1>
-        <p style={{ margin: 0, fontFamily: UI, fontSize: 13.5, color: "var(--fg1)", lineHeight: 1.55, maxWidth: 440 }}>
+        <p style={{ margin: 0, fontFamily: UI, fontSize: 13.5, color: "var(--fg1)", lineHeight: 1.55, maxWidth: "min(42rem, 100%)" }}>
           Qyra opens documents instantly — thumbnails, text search, annotations, and form tools are
           all one click away. Files never leave your device.
         </p>
@@ -911,7 +911,7 @@ export default function Home() {
 
         {/* Scrollable content */}
         <div style={{ flex: 1, overflow: "auto", padding: "20px 24px 32px" }}>
-          <div style={{ maxWidth: 1200, display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
             {/* File validation error */}
             {fileError && (
