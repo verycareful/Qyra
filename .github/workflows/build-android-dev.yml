@@ -2,12 +2,16 @@ name: 'Build Android (Dev Testing)'
 
 # Dev-only workflow: builds a debug APK for sideload testing.
 # Triggers on `android-test-*` tags so it does NOT collide with the production
-# `v*` release flow, and on manual workflow_dispatch from the Actions tab.
+# `v*` release flow, on every push to any `android/**` branch (iterative
+# dev on a feature branch when local cross-compile to Android is not
+# available), and on manual workflow_dispatch from the Actions tab.
 
 on:
   push:
     tags:
       - 'android-test-*'
+    branches:
+      - 'android/**'
   workflow_dispatch:
 
 jobs:
