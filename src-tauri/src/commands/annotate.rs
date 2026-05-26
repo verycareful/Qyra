@@ -1,5 +1,6 @@
 use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, Stream, content::{Content, Operation}};
 use crate::utils::paths::temp_output_path;
+use crate::utils::get_page_dims;
 use crate::error::AppResult;
 
 #[derive(serde::Deserialize)]
@@ -345,27 +346,6 @@ fn insert_virtual_pages(doc: &mut Document, virtual_pages: &[VirtualPageData]) -
     }
 
     Ok(())
-}
-
-fn get_page_dims(doc: &Document, page_id: ObjectId) -> (f64, f64) {
-    let page = match doc.get_object(page_id) {
-        Ok(obj) => obj,
-        Err(_) => return (595.0, 842.0),
-    };
-    if let Object::Dictionary(dict) = page {
-        if let Ok(Object::Array(arr)) = dict.get(b"MediaBox") {
-            let w = arr.get(2)
-                .and_then(|o| o.as_i64().ok().map(|v| v as f64)
-                    .or_else(|| o.as_f32().ok().map(|v| v as f64)))
-                .unwrap_or(595.0);
-            let h = arr.get(3)
-                .and_then(|o| o.as_i64().ok().map(|v| v as f64)
-                    .or_else(|| o.as_f32().ok().map(|v| v as f64)))
-                .unwrap_or(842.0);
-            return (w, h);
-        }
-    }
-    (595.0, 842.0)
 }
 
 /// Resolve a Reference object to its ObjectId, if it is one.
