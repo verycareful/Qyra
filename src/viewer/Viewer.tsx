@@ -5,6 +5,8 @@ import { useNotesStore, PageTemplate, VirtualPage } from "../store/useNotesStore
 
 import { usePageThumbnails, evictPathFromThumbnailCache } from "../hooks/usePageThumbnails";
 import { PageStrip } from "./PageStrip";
+import { ScrollPageIndicator } from "./ScrollPageIndicator";
+import { ZoomFab } from "./ZoomFab";
 import { ToolSidebar, ViewerTool } from "./ToolSidebar";
 import { invoke } from "@tauri-apps/api/core";
 import { copyFile, showSaveDialog, bakeAnnotations, setActiveDocument } from "../lib/tauri";
@@ -96,6 +98,13 @@ export default function Viewer({ tabPath }: { tabPath: string }) {
     showPresentation, setShowPresentation,
     confirmingBack, setConfirmingBack,
   } = useViewerUI();
+
+  // ToolSidebar (full-screen on phone) dispatches this when its × is tapped
+  useEffect(() => {
+    const close = () => setShowTools(false);
+    window.addEventListener("viewer:closeTools", close);
+    return () => window.removeEventListener("viewer:closeTools", close);
+  }, [setShowTools]);
 
   // Tool-mode cluster (activeTool, selectedPages, splitAfter, annotation pills)
   const initialSplitAfter = Math.max(1, Math.floor((viewerFile?.info?.page_count ?? 2) / 2));
@@ -290,9 +299,11 @@ export default function Viewer({ tabPath }: { tabPath: string }) {
   }, [stripVisibleRange, pageCount]);
 
   const stripThumbnails = usePageThumbnails(viewerFile?.path ?? null, pageCount, 0.3, stripVisibleNums);
-  // Render at physical pixel density: multiply by dpr so HiDPI screens get crisp pages.
+  // Fixed render scale — independent of zoom. Browser CSS scales the <img> to the
+  // current displayed width, so zoom never triggers a re-render. Crisp up to
+  // ~1.3x zoom on HiDPI; slightly soft beyond. Eliminates flicker entirely.
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const centerRenderScale = Math.min(3.0, Math.max(1.0, zoom * 1.5 * dpr));
+  const centerRenderScale = 2.0 * dpr;
   const centerThumbnails = usePageThumbnails(viewerFile?.path ?? null, pageCount, centerRenderScale, visiblePageNums);
 
   // Re-anchor scroll position when zoom changes so the current page stays in view
@@ -1385,13 +1396,24 @@ export default function Viewer({ tabPath }: { tabPath: string }) {
           />
         )}
 
-        {/* Left: page strip — side-in drawer (mobile) or fixed column (desktop) */}
+        {/* Left: page strip — slide-in drawer on phone (with backdrop), fixed column on desktop */}
+        {showStrip && !readingMode && (
+          <div
+            className="absolute inset-0 z-10 bg-black/40 sm:hidden"
+            onClick={() => setShowStrip(false)}
+            aria-hidden="true"
+          />
+        )}
         <div
           className={`h-full shrink-0 flex-col ${
             showStrip && !readingMode
-              ? "flex absolute inset-y-0 left-0 z-20 sm:relative sm:z-auto"
+              ? "flex absolute inset-y-0 left-0 z-20 sm:relative sm:z-auto page-strip-drawer"
               : "hidden"
           }`}
+          style={{
+            paddingTop: showStrip && !readingMode ? "env(safe-area-inset-top, 0px)" : undefined,
+            boxShadow: showStrip && !readingMode ? "6px 0 24px rgba(0,0,0,0.45)" : undefined,
+          }}
         >
           <PageStrip
             pageCount={pageCount}
@@ -1425,9 +1447,19 @@ export default function Viewer({ tabPath }: { tabPath: string }) {
         <div
           ref={scrollContainerRef}
           className="flex-1 overflow-auto"
-          style={{ background: "var(--viewer-canvas)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          style={{ background: "var(--viewer-canvas)", paddingBottom: "env(safe-area-inset-bottom, 0px)", position: "relative" }}
           onScroll={handleScroll}
         >
+          <ScrollPageIndicator
+            scrollContainerRef={scrollContainerRef}
+            currentPage={currentPage}
+            pageCount={pageCount}
+          />
+          <ZoomFab
+            zoom={zoom}
+            onAdjust={adjustZoom}
+            onReset={() => setZoom(1.0)}
+          />
           {/* "Add page" template picker — fixed overlay, unaffected by virtual scroll */}
           {addPageAt !== null && activeTool === "draw" && (
             <div

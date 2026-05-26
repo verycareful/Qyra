@@ -34,14 +34,17 @@ sysinfo = { version = "0.33", default-features = false, features = ["disk"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 docx-rs = "0.4"
 quick-xml = "0.36"
+mupdf = "0.6"
 
-# Updater and MuPDF only make sense on desktop (no app-store update flow on Android,
-# and mupdf-sys fails to cross-compile for Android from Windows).
+# Updater only makes sense on desktop (Play Store handles app-store updates on Android).
+# mupdf-sys 0.6.0 ships wrapper/context.c which #includes "androidfonts.c" on Android
+# but forgets to ship that file. The CI workflow drops a stub androidfonts.c into the
+# fetched crate before `cargo build` so the C side links.
 [target.'cfg(not(target_os = "android"))'.dependencies]
 tauri-plugin-updater = "2"
-mupdf = "0.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = { version = "0.21", default-features = false }
 ndk-context = "0.1"
+libc = "0.2"
 
