@@ -45,9 +45,9 @@ fn drain_pending_folder<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     use serde::Serialize;
     use std::path::PathBuf;
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Clone)]
     struct FolderChild { uri: String, name: String }
-    #[derive(Serialize)]
+    #[derive(Serialize, Clone)]
     struct FolderPicked { tree_uri: String, children: Vec<FolderChild> }
 
     let Ok(files_dir) = app.path().app_local_data_dir() else { return };
