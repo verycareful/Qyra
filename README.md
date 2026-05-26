@@ -1,34 +1,166 @@
-# Qyra
+<div align="center">
 
-The free, offline, open-source PDF Swiss Army Knife. Built with Tauri + React + TypeScript.
+<img src=".github/assets/banner.svg" alt="Qyra: The offline, open-source PDF toolkit" width="100%"/>
 
-## Downloads
+<p>
+  <a href="https://github.com/zParik/Qyra/releases"><img src="https://img.shields.io/github/v/release/zParik/Qyra?style=for-the-badge&color=7c5cff&labelColor=0b0f1a" alt="Release"/></a>
+  <a href="https://github.com/zParik/Qyra/actions"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-cross-platform.yml?style=for-the-badge&color=3ee9d1&labelColor=0b0f1a&label=build" alt="Build"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/zParik/Qyra?style=for-the-badge&color=5eb1ff&labelColor=0b0f1a" alt="License"/></a>
+  <a href="https://github.com/zParik/Qyra/stargazers"><img src="https://img.shields.io/github/stars/zParik/Qyra?style=for-the-badge&color=f5a623&labelColor=0b0f1a" alt="Stars"/></a>
+  <a href="https://github.com/zParik/Qyra/issues"><img src="https://img.shields.io/github/issues/zParik/Qyra?style=for-the-badge&color=ff6b6b&labelColor=0b0f1a" alt="Issues"/></a>
+</p>
 
-Grab the latest build from [Releases](../../releases) or the **Artifacts** section of the latest [Actions run](../../actions).
+<p>
+  <img src="https://img.shields.io/badge/Tauri-2-24C8DB?style=flat-square&logo=tauri&logoColor=white&labelColor=0b0f1a"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white&labelColor=0b0f1a"/>
+  <img src="https://img.shields.io/badge/Rust-stable-CE422B?style=flat-square&logo=rust&logoColor=white&labelColor=0b0f1a"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white&labelColor=0b0f1a"/>
+  <img src="https://img.shields.io/badge/MuPDF-native-7c5cff?style=flat-square&labelColor=0b0f1a"/>
+  <img src="https://img.shields.io/badge/100%25-Offline-3ee9d1?style=flat-square&labelColor=0b0f1a"/>
+</p>
 
-| Platform | Formats |
-|----------|---------|
-| Windows  | `.msi`, `.exe` (NSIS) |
-| Linux    | `.deb`, `.rpm`, `.AppImage` |
+<p>
+  <a href="#download">Download</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#development">Development</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
 
-## Linux on Wayland (Arch, Hyprland, etc.)
+</div>
 
-The AppImage is pre-patched to use your system's `libwayland-client.so` instead of the bundled copy, and the app disables WebKitGTK's DMA-buf renderer at startup. If there are issues, try `LD_PRELOAD=/usr/lib/libwayland-client.so Qyra.appimage`.
+---
 
+## Why Qyra?
+
+Acrobat wants a subscription. Online PDF sites want your files. Qyra wants neither.
+
+It's a desktop app that does the PDF work you actually do: view, mark up, merge, split, convert, OCR, protect. Everything runs locally. Nothing phones home. Open source under GPL-3.0.
+
+<div align="center">
+  <img src=".github/assets/features.svg" alt="Feature overview" width="100%"/>
+</div>
+
+## Features
+
+### Viewer
+- Tabbed multi-document interface with persistent session
+- Virtualized page list, thumbnails, zoom, rotate, search
+- Outline (bookmarks), document metadata, recent-files library
+
+### Annotation
+- Freehand ink with pressure (`perfect-freehand`), highlighter, sticky notes
+- Shapes, stamps, text boxes, comments
+- Form filling, redaction (true content removal), watermarks, page numbers
+- Flatten annotations into the page
+
+### Page operations
+- **Merge** multiple PDFs into one
+- **Split** by range or page count
+- **Reorder** via drag-and-drop
+- **Remove**, **rotate**, **crop** pages
+
+### Conversion
+- PDF → images (PNG/JPEG, per page)
+- Images → PDF
+- PDF → plain text or layout-preserving text
+- PDF → Word (`.docx`)
+- **OCR** scanned pages via Tesseract.js, fully offline
+
+### Security
+- Password protect (AES-128/256)
+- Unlock (with password)
+- Compress and optimize
+
+## Download
+
+Grab a build from [Releases](https://github.com/zParik/Qyra/releases), or nightly artifacts from the latest [Actions run](https://github.com/zParik/Qyra/actions).
+
+| Platform | Formats                       | Status        |
+|----------|-------------------------------|---------------|
+| Windows  | `.msi`, `.exe` (NSIS)         | Stable        |
+| Linux    | `.deb`, `.rpm`, `.AppImage`   | Stable        |
+| Android  | `.apk`                        | Experimental  |
+| macOS    | Build from source             | Untested      |
+
+### Linux on Wayland
+
+The AppImage is patched to use the system `libwayland-client.so`, and WebKitGTK's DMA-buf renderer is disabled at startup. If you still hit issues:
+
+```bash
+LD_PRELOAD=/usr/lib/libwayland-client.so ./Qyra.AppImage
+```
 
 ## Development
+
+**Prerequisites**
+- Node.js 20+
+- Rust toolchain (stable)
+- Tauri platform deps: https://tauri.app/start/prerequisites/
+- **Windows:** run `cargo` from a *Visual Studio Developer PowerShell* so MSVC env vars are set for the native C deps (MuPDF).
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-## Building
+Lint:
+```bash
+npm run lint
+```
+
+### Building
 
 ```bash
 npm run tauri build
 ```
 
+Bundles land in `src-tauri/target/release/bundle/`.
+
+### Android
+
+CI builds an APK via `.github/workflows/build-android.yml`. Locally you need the Android NDK and the `aarch64-linux-android` Rust target.
+
+## Project layout
+
+```
+src/                React 19 + TypeScript frontend
+├─ tools/           One page per feature (Merge, Split, OCR, …)
+├─ viewer/          PDF viewer + annotation surface
+├─ components/      Shared UI
+├─ store/           Zustand stores
+└─ hooks/           React hooks
+
+src-tauri/
+├─ src/commands/    Rust Tauri commands, one file per feature
+├─ src/pdf/         MuPDF bindings and PDF helpers
+└─ src/utils/       Shared Rust utilities
+```
+
+## Tech stack
+
+| Layer        | Choice                                                       |
+|--------------|--------------------------------------------------------------|
+| Shell        | [Tauri 2](https://tauri.app/)                                |
+| Frontend     | React 19, TypeScript, Vite, Tailwind 4, Radix UI             |
+| State        | Zustand, TanStack Query                                      |
+| PDF engine   | [MuPDF](https://mupdf.com/) via Rust FFI                     |
+| OCR          | [Tesseract.js](https://github.com/naptha/tesseract.js)       |
+| Ink          | [perfect-freehand](https://github.com/steveruizok/perfect-freehand) |
+
+## Contributing
+
+Issues and PRs welcome. Conventions:
+- One logical change per commit
+- Many small commits per PR
+- Merge commit only (no squash, no rebase)
+- Reference an issue in the PR body when one exists
+
 ## License
 
-See [LICENSE](LICENSE).
+[GPL-3.0](LICENSE). Use it, modify it, ship it, just keep it open.
+
+---
+
+<div align="center">
+  <sub>Built by <a href="https://github.com/zParik">@zParik</a>. Star the repo if Qyra saves you a subscription.</sub>
+</div>
