@@ -3,10 +3,10 @@
 <img src=".github/assets/banner.svg" alt="Qyra: The offline, open-source PDF toolkit" width="100%"/>
 
 <p>
-  <a href="https://github.com/zParik/Qyra/releases"><img src="https://img.shields.io/github/v/release/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e" alt="Release"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e" alt="License"/></a>
-  <a href="https://github.com/zParik/Qyra/stargazers"><img src="https://img.shields.io/github/stars/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e" alt="Stars"/></a>
-  <a href="https://github.com/zParik/Qyra/issues"><img src="https://img.shields.io/github/issues/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e" alt="Issues"/></a>
+  <a href="https://github.com/zParik/Qyra/releases"><img src="https://img.shields.io/github/v/release/zParik/Qyra?include_prereleases&style=for-the-badge&color=e8a14b&labelColor=0d0d0e&cacheSeconds=3600" alt="Release"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e&cacheSeconds=86400" alt="License"/></a>
+  <a href="https://github.com/zParik/Qyra/stargazers"><img src="https://img.shields.io/github/stars/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e&cacheSeconds=3600" alt="Stars"/></a>
+  <a href="https://github.com/zParik/Qyra/issues"><img src="https://img.shields.io/github/issues/zParik/Qyra?style=for-the-badge&color=e8a14b&labelColor=0d0d0e&cacheSeconds=3600" alt="Issues"/></a>
 </p>
 
 <p>
@@ -19,10 +19,10 @@
 </p>
 
 <p>
-  <a href="https://github.com/zParik/Qyra/actions/workflows/build-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-windows.yml?style=flat-square&labelColor=0d0d0e&label=windows" alt="Windows build"/></a>
-  <a href="https://github.com/zParik/Qyra/actions/workflows/build-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-linux.yml?style=flat-square&labelColor=0d0d0e&label=linux" alt="Linux build"/></a>
-  <a href="https://github.com/zParik/Qyra/actions/workflows/build-macos.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-macos.yml?style=flat-square&labelColor=0d0d0e&label=macos" alt="macOS build"/></a>
-  <a href="https://github.com/zParik/Qyra/actions/workflows/build-android.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-android.yml?style=flat-square&labelColor=0d0d0e&label=android" alt="Android build"/></a>
+  <a href="https://github.com/zParik/Qyra/actions/workflows/build-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-windows.yml?style=flat-square&labelColor=0d0d0e&label=windows&cacheSeconds=900" alt="Windows build"/></a>
+  <a href="https://github.com/zParik/Qyra/actions/workflows/build-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-linux.yml?style=flat-square&labelColor=0d0d0e&label=linux&cacheSeconds=900" alt="Linux build"/></a>
+  <a href="https://github.com/zParik/Qyra/actions/workflows/build-macos.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-macos.yml?style=flat-square&labelColor=0d0d0e&label=macos&cacheSeconds=900" alt="macOS build"/></a>
+  <a href="https://github.com/zParik/Qyra/actions/workflows/build-android.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-android.yml?style=flat-square&labelColor=0d0d0e&label=android&cacheSeconds=900" alt="Android build"/></a>
 </p>
 
 <p>
