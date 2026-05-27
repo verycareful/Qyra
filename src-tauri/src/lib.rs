@@ -246,7 +246,18 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .manage(commands::cache::SessionCacheState::new())
         .manage(commands::render::ActiveDocument::new())
+        .manage(commands::crash::CrashLogDir::new())
         .setup(|app| {
+            #[cfg(not(target_os = "android"))]
+            if let Some(dir) = commands::crash::install_panic_hook(app.handle()) {
+                if let Ok(mut guard) = app
+                    .state::<commands::crash::CrashLogDir>()
+                    .0
+                    .lock()
+                {
+                    *guard = Some(dir);
+                }
+            }
             #[cfg(target_os = "android")]
             {
                 if let Err(e) = init_ndk_context() {
@@ -392,6 +403,9 @@ pub fn run() {
             anonymize::anonymize_pdf,
             form_data::export_form_xfdf,
             form_data::import_form_xfdf,
+            crash::list_crash_logs,
+            crash::dismiss_crash_log,
+            crash::dismiss_all_crash_logs,
             get_pending_open,
         ])
         .build(tauri::generate_context!())

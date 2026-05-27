@@ -12,6 +12,7 @@ import { useOpenWithFile } from "./hooks/useOpenWithFile";
 import { useUpdater } from "./hooks/useUpdater";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { CommandPalette } from "./components/CommandPalette";
+import { CrashLogBanner } from "./components/CrashLogBanner";
 import { ErrorFallback } from "./components/ErrorFallback";
 
 /** Handles "Open with" / double-click file association — must live inside BrowserRouter */
@@ -37,6 +38,7 @@ export default function App() {
     <BrowserRouter>
       <OpenWithHandler />
       <CommandPalette />
+      <CrashLogBanner />
       <UpdateBanner
         state={updaterState}
         onInstall={installUpdate}
