@@ -57,8 +57,19 @@ fn rasterize_pages(path: &str, dpi: u32) -> AppResult<(String, usize)> {
         let pixmap = page
             .to_pixmap(&matrix, &mupdf::Colorspace::device_rgb(), false, false)
             .map_err(|e| AppError::Pdf(format!("rasterize {}: {}", i, e)))?;
-        let jpeg = pixmap.get_image_data(mupdf::ImageFormat::JPEG { quality: 85 })
-            .map_err(|e| AppError::Pdf(format!("jpeg encode {}: {}", i, e)))?;
+
+        let width = pixmap.width();
+        let height = pixmap.height();
+        let samples = pixmap.samples().to_vec();
+        let img = image::RgbImage::from_raw(width, height, samples)
+            .ok_or_else(|| AppError::Pdf(format!("pixmap→RgbImage failed at page {}", i)))?;
+        let mut jpeg: Vec<u8> = Vec::new();
+        {
+            let mut cursor = std::io::Cursor::new(&mut jpeg);
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 85)
+                .encode_image(&image::DynamicImage::ImageRgb8(img))
+                .map_err(|e| AppError::Pdf(format!("jpeg encode {}: {}", i, e)))?;
+        }
 
         let img_dict = dictionary! {
             "Type" => "XObject",
@@ -69,7 +80,7 @@ fn rasterize_pages(path: &str, dpi: u32) -> AppResult<(String, usize)> {
             "BitsPerComponent" => 8,
             "Filter" => "DCTDecode",
         };
-        let img_id = doc.add_object(Stream::new(img_dict, jpeg.to_vec()));
+        let img_id = doc.add_object(Stream::new(img_dict, jpeg));
 
         let ops = vec![
             Operation::new("q", vec![]),
