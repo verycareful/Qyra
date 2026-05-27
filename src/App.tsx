@@ -11,11 +11,8 @@ import ViewerShell from "./viewer/ViewerShell";
 import { useOpenWithFile } from "./hooks/useOpenWithFile";
 import { useUpdater } from "./hooks/useUpdater";
 import { UpdateBanner } from "./components/UpdateBanner";
-<<<<<<< HEAD
 import { CommandPalette } from "./components/CommandPalette";
-=======
 import { CrashLogBanner } from "./components/CrashLogBanner";
->>>>>>> bc1d7a1 (feat(crash): panic hook writes log + opt-in GitHub issue draft on next launch)
 import { ErrorFallback } from "./components/ErrorFallback";
 
 /** Handles "Open with" / double-click file association — must live inside BrowserRouter */
@@ -40,11 +37,8 @@ export default function App() {
     <ErrorBoundary FallbackComponent={ErrorFallback}>
     <BrowserRouter>
       <OpenWithHandler />
-<<<<<<< HEAD
       <CommandPalette />
-=======
       <CrashLogBanner />
->>>>>>> bc1d7a1 (feat(crash): panic hook writes log + opt-in GitHub issue draft on next launch)
       <UpdateBanner
         state={updaterState}
         onInstall={installUpdate}

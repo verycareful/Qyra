@@ -249,12 +249,13 @@ pub fn run() {
         .manage(commands::crash::CrashLogDir::new())
         .setup(|app| {
             #[cfg(not(target_os = "android"))]
-            {
-                if let Some(dir) = commands::crash::install_panic_hook(app.handle()) {
-                    let state: tauri::State<commands::crash::CrashLogDir> = app.state();
-                    if let Ok(mut guard) = state.0.lock() {
-                        *guard = Some(dir);
-                    }
+            if let Some(dir) = commands::crash::install_panic_hook(app.handle()) {
+                if let Ok(mut guard) = app
+                    .state::<commands::crash::CrashLogDir>()
+                    .0
+                    .lock()
+                {
+                    *guard = Some(dir);
                 }
             }
             #[cfg(target_os = "android")]
@@ -398,16 +399,13 @@ pub fn run() {
             tabs::get_tab_ui_state,
             tabs::clear_tab_session,
             folder_pick::request_saf_folder_picker,
-<<<<<<< HEAD
             repair::repair_pdf,
             anonymize::anonymize_pdf,
             form_data::export_form_xfdf,
             form_data::import_form_xfdf,
-=======
             crash::list_crash_logs,
             crash::dismiss_crash_log,
             crash::dismiss_all_crash_logs,
->>>>>>> bc1d7a1 (feat(crash): panic hook writes log + opt-in GitHub issue draft on next launch)
             get_pending_open,
         ])
         .build(tauri::generate_context!())
