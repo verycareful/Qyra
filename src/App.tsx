@@ -6,6 +6,7 @@ import Home from "./tools/Home";
 import Merge from "./tools/Merge";
 import ImagesToPdf from "./tools/ImagesToPdf";
 import Ocr from "./tools/Ocr";
+import RepairPdf from "./tools/RepairPdf";
 import ViewerShell from "./viewer/ViewerShell";
 import { useOpenWithFile } from "./hooks/useOpenWithFile";
 import { useUpdater } from "./hooks/useUpdater";
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/merge" element={<Merge />} />
         <Route path="/images-to-pdf" element={<ImagesToPdf />} />
         <Route path="/ocr" element={<Ocr />} />
+        <Route path="/repair" element={<RepairPdf />} />
       </Routes>
     </BrowserRouter>
     </ErrorBoundary>

@@ -381,6 +381,7 @@ pub fn run() {
             tabs::get_tab_ui_state,
             tabs::clear_tab_session,
             folder_pick::request_saf_folder_picker,
+            repair::repair_pdf,
             get_pending_open,
         ])
         .build(tauri::generate_context!())
