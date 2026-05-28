@@ -3,8 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { LoadedFile } from "../../store/useAppStore";
 import { ProgressBar, Spinner } from "../../components/ProgressBar";
 import { compressPdf, compressPdfGs, type GsPreset } from "../../lib/tauri";
+import { isAndroid } from "../../lib/androidFileUtils";
 import { sanitizeError, type ProgressData } from "../usePanelCommand";
 import { StatusBox } from "../components/StatusBox";
+
+const GS_UNAVAILABLE = isAndroid();
 
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -51,7 +54,9 @@ interface CompressPanelProps {
 }
 
 export function CompressPanel({ file, onApplied }: CompressPanelProps) {
+  // Ghostscript sidecar has no Android build — force Native on Android.
   const [engine, setEngine] = useState<Engine>("rust");
+  const gsDisabled = GS_UNAVAILABLE;
   const [level, setLevel] = useState<Level>(0);
   const [preset, setPreset] = useState<GsPreset>("ebook");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -111,26 +116,41 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
           className="flex rounded-lg overflow-hidden"
           style={{ border: "1px solid var(--viewer-border)" }}
         >
-          {(["rust", "gs"] as const).map((e, i) => (
-            <button
-              key={e}
-              onClick={() => setEngine(e)}
-              className="flex-1 py-2 px-1 text-center text-xs transition-colors"
-              style={
-                engine === e
-                  ? { background: "var(--viewer-accent)", color: "#fff" }
-                  : {
-                      background: "var(--viewer-bg)",
-                      color: "var(--viewer-text-muted)",
-                      borderLeft: i > 0 ? "1px solid var(--viewer-border)" : undefined,
-                    }
-              }
-            >
-              <div className="font-semibold">{e === "rust" ? "Native" : "Ghostscript"}</div>
-              <div style={{ opacity: 0.7 }}>{e === "rust" ? "fast, text PDFs" : "image-heavy"}</div>
-            </button>
-          ))}
+          {(["rust", "gs"] as const).map((e, i) => {
+            const disabled = e === "gs" && gsDisabled;
+            return (
+              <button
+                key={e}
+                disabled={disabled}
+                onClick={() => !disabled && setEngine(e)}
+                className="flex-1 py-2 px-1 text-center text-xs transition-colors"
+                style={
+                  engine === e
+                    ? { background: "var(--viewer-accent)", color: "#fff" }
+                    : {
+                        background: "var(--viewer-bg)",
+                        color: disabled
+                          ? "var(--viewer-text-muted)"
+                          : "var(--viewer-text-muted)",
+                        opacity: disabled ? 0.5 : 1,
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        borderLeft: i > 0 ? "1px solid var(--viewer-border)" : undefined,
+                      }
+                }
+              >
+                <div className="font-semibold">{e === "rust" ? "Native" : "Ghostscript"}</div>
+                <div style={{ opacity: 0.7 }}>
+                  {e === "rust" ? "fast, text PDFs" : disabled ? "desktop only" : "image-heavy"}
+                </div>
+              </button>
+            );
+          })}
         </div>
+        {gsDisabled && (
+          <p className="text-xs mt-2" style={{ color: "var(--viewer-text-muted)" }}>
+            Ghostscript compression is desktop-only. Android uses the Native zlib engine.
+          </p>
+        )}
       </div>
 
       {/* Level / preset selector */}
