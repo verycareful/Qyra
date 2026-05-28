@@ -19,6 +19,29 @@ use std::process::Command;
 use serde::Serialize;
 use tauri::Emitter;
 
+/// Apply OS-specific low-priority scheduling to a Command before spawn so the
+/// Ghostscript process does not starve the UI thread or other apps on the box.
+/// Total CPU work is unchanged — only the kernel scheduling priority drops.
+#[cfg(windows)]
+fn lower_priority(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    // BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
+    // CREATE_NO_WINDOW            = 0x08000000  (suppress console flash)
+    cmd.creation_flags(0x00004000 | 0x08000000);
+}
+
+#[cfg(unix)]
+fn lower_priority(cmd: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    unsafe {
+        cmd.pre_exec(|| {
+            // nice +10 — same as `nice -n 10 gs ...`
+            libc::nice(10);
+            Ok(())
+        });
+    }
+}
+
 use crate::error::{AppError, AppResult};
 use crate::utils::paths::temp_output_path;
 use crate::utils::progress::Progress;
@@ -109,8 +132,8 @@ pub async fn compress_pdf_gs(
             Progress::new(0, 1, format!("Ghostscript /{preset} ...")),
         );
 
-        let status = Command::new(&gs)
-            .arg("-sDEVICE=pdfwrite")
+        let mut cmd = Command::new(&gs);
+        cmd.arg("-sDEVICE=pdfwrite")
             .arg("-dCompatibilityLevel=1.7")
             .arg(format!("-dPDFSETTINGS=/{preset}"))
             .arg("-dNOPAUSE")
@@ -118,7 +141,9 @@ pub async fn compress_pdf_gs(
             .arg("-dBATCH")
             .arg("-dSAFER")
             .arg(format!("-sOutputFile={out}"))
-            .arg(&path)
+            .arg(&path);
+        lower_priority(&mut cmd);
+        let status = cmd
             .status()
             .map_err(|e| AppError::Other(format!("failed to spawn ghostscript: {e}")))?;
 
