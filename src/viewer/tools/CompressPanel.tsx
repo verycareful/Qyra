@@ -97,7 +97,10 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4 scroll-invisible overflow-y-auto pr-1"
+      style={{ maxHeight: "calc(100vh - 160px)" }}
+    >
       {file.info && (
         <div className="v-stat-box">
           <p className="text-xs" style={{ color: "var(--viewer-text-sec)" }}>
