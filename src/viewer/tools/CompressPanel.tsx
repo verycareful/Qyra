@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { LoadedFile } from "../../store/useAppStore";
 import { ProgressBar, Spinner } from "../../components/ProgressBar";
-import { compressPdf, compressPdfGs, type GsPreset } from "../../lib/tauri";
+import { compressPdf, compressPdfGs, compressPdfGsParallel, type GsPreset } from "../../lib/tauri";
 import { isAndroid } from "../../lib/androidFileUtils";
 import { sanitizeError, type ProgressData } from "../usePanelCommand";
 import { StatusBox } from "../components/StatusBox";
@@ -59,6 +59,7 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
   const gsDisabled = GS_UNAVAILABLE;
   const [level, setLevel] = useState<Level>(0);
   const [preset, setPreset] = useState<GsPreset>("ebook");
+  const [fastMode, setFastMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +80,9 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
     try {
       const result =
         engine === "gs"
-          ? await compressPdfGs(file.path, undefined, preset)
+          ? fastMode
+            ? await compressPdfGsParallel(file.path, undefined, preset)
+            : await compressPdfGs(file.path, undefined, preset)
           : await compressPdf(file.path, undefined, level);
       setSizes({ original: result.original_bytes, compressed: result.compressed_bytes });
       onApplied(result.path);
@@ -239,6 +242,32 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
           <p className="text-xs mt-2" style={{ color: "var(--viewer-text-muted)" }}>
             {GS_PRESET_DETAIL[preset]}
           </p>
+
+          {/* Fast (parallel) mode toggle */}
+          <label
+            className="flex items-start gap-2 mt-3 cursor-pointer"
+            style={{ color: "var(--viewer-text-sec)" }}
+          >
+            <input
+              type="checkbox"
+              checked={fastMode}
+              onChange={(e) => setFastMode(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span className="text-xs">
+              <span className="font-semibold" style={{ color: "var(--viewer-text)" }}>
+                Fast mode (parallel)
+              </span>
+              <span className="block" style={{ opacity: 0.75 }}>
+                Splits the PDF into 25-page chunks and compresses them on
+                multiple CPU cores. Faster wall-clock on large files.
+                <strong> Loses bookmarks, outline, form fields, and
+                cross-page image deduplication</strong> — output may even be
+                slightly larger than single-pass on PDFs that share images
+                across pages.
+              </span>
+            </span>
+          </label>
         </div>
       )}
 
