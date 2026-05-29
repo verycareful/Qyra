@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save, open } from "@tauri-apps/plugin-dialog";
-import { isAndroid, androidSavePath, androidOutputDir } from "./androidFileUtils";
+import { isAndroid, androidSavePath, androidOutputDir, saveFolderLabel } from "./androidFileUtils";
+import { loadSetting, Settings } from "./settings";
 import type {
   PageRange, PageNumberOptions, PdfMetadata, PdfInfo,
   CompressResult, StrokeAnnotation, PageAnnotation, VirtualPageAnnotation,
@@ -127,7 +128,18 @@ export const showSaveDialog = async (defaultPath?: string): Promise<string | nul
     const name = defaultPath ? (defaultPath.split(/[\\/]/).pop() ?? "output.pdf") : "output.pdf";
     return androidSavePath(name);
   }
-  return save({ defaultPath, filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  // If the caller passed a bare filename (no directory) and a default save
+  // folder is configured, open the dialog in that folder.
+  let effectivePath = defaultPath;
+  const isBareName = !!defaultPath && !/[\\/]/.test(defaultPath);
+  if (isBareName) {
+    const folder = await loadSetting(Settings.defaultSaveFolder);
+    if (folder && !folder.startsWith("content://")) {
+      const sep = folder.includes("\\") ? "\\" : "/";
+      effectivePath = `${folder.replace(/[\\/]$/, "")}${sep}${defaultPath}`;
+    }
+  }
+  return save({ defaultPath: effectivePath, filters: [{ name: "PDF", extensions: ["pdf"] }] });
 };
 
 export const writeBytes = (path: string, data: number[]) =>
@@ -143,6 +155,35 @@ export const getContentUriDisplayName = (uri: string) =>
 
 export const shareFile = (path: string) =>
   invoke<void>("share_file", { path });
+
+export const saveToSafTree = (treeUri: string, srcPath: string, displayName: string) =>
+  invoke<string>("save_to_saf_tree", { treeUri, srcPath, displayName });
+
+/**
+ * Export/save a generated file to the user's chosen destination.
+ * - Android with a default save folder set → write into the SAF tree.
+ * - Android with no default folder → existing share/Downloads behavior.
+ * - Desktop → existing share behavior (desktop save uses showSaveDialog elsewhere).
+ * Returns a short human label of where it went, or null if it fell back to share.
+ */
+export const exportFile = async (path: string): Promise<string | null> => {
+  if (isAndroid()) {
+    const folder = await loadSetting(Settings.defaultSaveFolder);
+    if (folder && folder.startsWith("content://")) {
+      const name = path.split(/[\\/]/).pop() ?? "output.pdf";
+      try {
+        await saveToSafTree(folder, path, name);
+        return saveFolderLabel(folder);
+      } catch {
+        // Stale grant or removed folder — fall back to share.
+        await shareFile(path);
+        return null;
+      }
+    }
+  }
+  await shareFile(path);
+  return null;
+};
 
 export const bakeAnnotations = (
   path: string,

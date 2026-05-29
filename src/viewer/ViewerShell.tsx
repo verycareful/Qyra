@@ -8,6 +8,7 @@ import Home from "../tools/Home";
 import { ErrorBoundary } from "react-error-boundary";
 import { ViewerErrorFallback } from "../components/ErrorFallback";
 import { ShortcutsModal } from "../components/ShortcutsModal";
+import { loadSetting, Settings } from "../lib/settings";
 
 export default function ViewerShell() {
   const navigate = useNavigate();
@@ -27,25 +28,36 @@ export default function ViewerShell() {
   const activeTab = openTabs[activeTabIndex];
   const homeVisible = activeTab?.type === "home";
 
-  // Load persisted session on first mount (only if no tabs already open)
+  // Load persisted session on first mount (only if no tabs already open),
+  // gated on the reopen-tabs-on-launch preference.
   useEffect(() => {
     if (openTabs.length > 0) return;
-    invoke<[TabEntry[], number]>("get_tab_session").then(([tabs, active]) => {
-      if (tabs.length === 0) {
+    let alive = true;
+    loadSetting(Settings.reopenTabsOnLaunch).then((reopen) => {
+      if (!alive) return;
+      if (!reopen) {
         openTab({ type: "home", path: "__home__0", name: "New Tab" });
         return;
       }
-      tabs.forEach((t) =>
-        openTab(
-          t.path.startsWith("__home__")
-            ? { type: "home", path: t.path, name: t.name }
-            : { type: "pdf", path: t.path, name: t.name }
-        )
-      );
-      activateTab(active);
-    }).catch(() => {
-      openTab({ type: "home", path: "__home__0", name: "New Tab" });
+      invoke<[TabEntry[], number]>("get_tab_session").then(([tabs, active]) => {
+        if (!alive) return;
+        if (tabs.length === 0) {
+          openTab({ type: "home", path: "__home__0", name: "New Tab" });
+          return;
+        }
+        tabs.forEach((t) =>
+          openTab(
+            t.path.startsWith("__home__")
+              ? { type: "home", path: t.path, name: t.name }
+              : { type: "pdf", path: t.path, name: t.name }
+          )
+        );
+        activateTab(active);
+      }).catch(() => {
+        openTab({ type: "home", path: "__home__0", name: "New Tab" });
+      });
     });
+    return () => { alive = false; };
   }, []);
 
   // Persist session whenever tabs or active index change (skip home-only sessions)

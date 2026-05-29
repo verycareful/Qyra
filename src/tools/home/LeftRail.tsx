@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { UI, MONO } from "../../lib/tokens";
 import { IconProps, IcHome, IcRecent, IcStar, IcFolder, IcArchive, IcMerge, IcImage } from "../../components/Icons";
 import { ThemeToggle } from "../../components/ThemeToggle";
@@ -28,6 +29,7 @@ export function LeftRail({ active, onPick, recentCount, storageUsage }: {
   recentCount: number;
   storageUsage: DiskSpace | null;
 }) {
+  const navigate = useNavigate();
   const navItems = [
     { id: "home",    label: "Home",        Icon: IcHome },
     { id: "recent",  label: "Recents",     Icon: IcRecent, badge: recentCount > 0 ? String(recentCount) : undefined },
@@ -94,6 +96,17 @@ export function LeftRail({ active, onPick, recentCount, storageUsage }: {
 
       <div className="px-3 pb-2">
         <ThemeToggle variant="rail" />
+      </div>
+
+      <div className="px-3 pb-2">
+        <button
+          onClick={() => navigate("/settings")}
+          className="home-rail-item w-full"
+          style={{ fontFamily: UI }}
+        >
+          <span className="rail-icon">⚙</span>
+          <span className="flex-1 text-left">Settings</span>
+        </button>
       </div>
 
       <div className="flex items-center gap-2 px-3.5 py-2.5" style={{ borderTop: "1px solid var(--line2)" }}>
