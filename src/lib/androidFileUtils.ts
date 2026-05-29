@@ -161,3 +161,68 @@ export async function pickFolderAndroid(): Promise<{ path: string; name: string 
       .catch(reject);
   });
 }
+
+/**
+ * Show Android's SAF folder picker and return the chosen tree URI (the folder
+ * itself), or null if cancelled. The persistable grant is taken in Kotlin so
+ * the folder stays writable across launches. Used by Settings → default save
+ * folder; saving into the tree is done by the `save_to_saf_tree` command.
+ */
+export async function pickSaveFolderAndroid(): Promise<string | null> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const { listen } = await import("@tauri-apps/api/event");
+
+  interface FolderPickedPayload {
+    tree_uri: string;
+    children: { uri: string; name: string }[];
+  }
+
+  return new Promise<string | null>((resolve, reject) => {
+    let unlisten: (() => void) | undefined;
+    let settled = false;
+
+    const finish = (out: string | null) => {
+      if (settled) return;
+      settled = true;
+      unlisten?.();
+      clearTimeout(cancelTimer);
+      resolve(out);
+    };
+
+    const cancelTimer = setTimeout(() => finish(null), 5 * 60 * 1000);
+
+    listen<FolderPickedPayload>("folder-picked", (e) => {
+      finish(e.payload.tree_uri || null);
+    })
+      .then((u) => {
+        unlisten = u;
+        invoke("request_saf_folder_picker").catch((err) => {
+          if (settled) return;
+          settled = true;
+          unlisten?.();
+          clearTimeout(cancelTimer);
+          reject(err);
+        });
+      })
+      .catch(reject);
+  });
+}
+
+/**
+ * Best-effort human label for a stored default-save-folder value. On desktop
+ * this is a path (show as-is). On Android it's a SAF tree URI like
+ * content://.../tree/primary%3ADownload — decode the segment after the last
+ * ':' for display, falling back to the raw value.
+ */
+export function saveFolderLabel(value: string): string {
+  if (!value) return "Not set";
+  if (!value.startsWith("content://")) return value; // desktop path
+  try {
+    const decoded = decodeURIComponent(value);
+    const afterColon = decoded.split(":").pop() ?? decoded;
+    const leaf = afterColon.split("/").filter(Boolean).pop();
+    return leaf || decoded;
+  } catch {
+    return value;
+  }
+}
