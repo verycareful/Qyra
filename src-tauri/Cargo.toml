@@ -48,3 +48,7 @@ jni = { version = "0.21", default-features = false }
 ndk-context = "0.1"
 libc = "0.2"
 
+# libc on unix desktop for nice() in compress_gs.rs lower_priority.
+[target.'cfg(all(unix, not(target_os = "android")))'.dependencies]
+libc = "0.2"
+
