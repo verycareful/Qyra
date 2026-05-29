@@ -2,6 +2,7 @@ pub mod android_pdf;
 pub mod merge;
 pub mod split;
 pub mod compress;
+pub mod compress_gs;
 pub mod rotate;
 pub mod remove;
 pub mod reorder;
