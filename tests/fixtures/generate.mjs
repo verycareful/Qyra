@@ -24,8 +24,21 @@ const enc = (s) => Buffer.from(s, "latin1");
 // `objects` is a Map<number, Buffer> of object bodies (text between `obj` and
 // `endobj`). `trailer` is the trailer dictionary body (without << >>).
 function buildPdf(objects, trailerDict) {
-  const ids = [...objects.keys()].sort((a, b) => a - b);
-  const maxId = ids[ids.length - 1];
+  // Builders use arbitrary object ids for readability; renumber them to a
+  // contiguous 1..N so the xref table has no gaps (strict readers reject
+  // in-use entries that point at offset 0). References (`N 0 R`) only appear in
+  // plain dictionary bodies and the trailer — never inside stream data — so a
+  // textual remap there is safe.
+  const oldIds = [...objects.keys()].sort((a, b) => a - b);
+  const map = new Map(oldIds.map((old, i) => [old, i + 1]));
+  const remap = (s) => s.replace(/\b(\d+) 0 R\b/g, (m, d) => `${map.get(+d) ?? d} 0 R`);
+  const bodies = oldIds.map((old) => {
+    const buf = objects.get(old);
+    const txt = buf.toString("latin1");
+    return txt.includes("\nstream\n") ? buf : enc(remap(txt));
+  });
+
+  const n = oldIds.length;
   const parts = [];
   let offset = 0;
   const push = (buf) => {
@@ -37,23 +50,27 @@ function buildPdf(objects, trailerDict) {
   // Binary marker comment so tools treat the file as binary.
   push(Buffer.from([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
 
-  const xrefOffsets = new Array(maxId + 1).fill(0);
-  for (const id of ids) {
+  const xrefOffsets = new Array(n + 1).fill(0);
+  for (let i = 0; i < n; i++) {
+    const id = i + 1;
     xrefOffsets[id] = offset;
     push(enc(`${id} 0 obj\n`));
-    push(objects.get(id));
+    push(bodies[i]);
     push(enc("\nendobj\n"));
   }
 
   const xrefStart = offset;
-  const count = maxId + 1;
+  const count = n + 1;
   let xref = `xref\n0 ${count}\n0000000000 65535 f \n`;
   for (let id = 1; id < count; id++) {
     const off = String(xrefOffsets[id]).padStart(10, "0");
     xref += `${off} 00000 n \n`;
   }
   push(enc(xref));
-  push(enc(`trailer\n<< ${trailerDict} >>\nstartxref\n${xrefStart}\n%%EOF\n`));
+  // /Size (total xref entries, incl. the free object 0) is required by the spec;
+  // lenient readers (mupdf) tolerate its absence but strict ones (lopdf) reject
+  // the trailer without it.
+  push(enc(`trailer\n<< ${remap(trailerDict)} /Size ${count} >>\nstartxref\n${xrefStart}\n%%EOF\n`));
 
   return Buffer.concat(parts);
 }
