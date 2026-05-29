@@ -14,6 +14,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { deflateSync } from "node:zlib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, "pdf", "generated");
@@ -293,11 +294,44 @@ const FIXTURES = {
   "scanned.pdf": scanned,
 };
 
-// A 1x1 red PNG — input for the images_to_pdf command.
-const SAMPLE_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-);
+// A valid 1x1 red PNG, built with correct chunk CRCs — input for images_to_pdf.
+function crc32(buf) {
+  let c = ~0;
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i];
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return (~c) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4);
+  len.writeUInt32BE(data.length, 0);
+  const typeBuf = Buffer.from(type, "latin1");
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])), 0);
+  return Buffer.concat([len, typeBuf, data, crc]);
+}
+
+function buildPng() {
+  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0); // width
+  ihdr.writeUInt32BE(1, 4); // height
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // color type: truecolor RGB
+  // bytes 10-12: compression, filter, interlace = 0
+  const raw = Buffer.from([0x00, 0xff, 0x00, 0x00]); // filter 0 + one red pixel
+  const idat = deflateSync(raw);
+  return Buffer.concat([
+    sig,
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", idat),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+const SAMPLE_PNG = buildPng();
 
 function main() {
   mkdirSync(OUT, { recursive: true });
