@@ -8,6 +8,7 @@ import ImagesToPdf from "./tools/ImagesToPdf";
 import Ocr from "./tools/Ocr";
 import RepairPdf from "./tools/RepairPdf";
 import BatchOps from "./tools/BatchOps";
+import Settings from "./tools/Settings";
 import ViewerShell from "./viewer/ViewerShell";
 import { useOpenWithFile } from "./hooks/useOpenWithFile";
 import { useUpdater } from "./hooks/useUpdater";
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/ocr" element={<Ocr />} />
         <Route path="/repair" element={<RepairPdf />} />
         <Route path="/batch" element={<BatchOps />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </BrowserRouter>
     </ErrorBoundary>
