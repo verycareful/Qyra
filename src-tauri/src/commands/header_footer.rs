@@ -113,16 +113,30 @@ pub async fn add_header_footer(
     output: Option<String>,
     app_handle: tauri::AppHandle,
 ) -> AppResult<HeaderFooterReport> {
+    tokio::task::spawn_blocking(move || -> AppResult<HeaderFooterReport> {
+        header_footer_core(path, options, output, |p| {
+            let _ = app_handle.emit("operation-progress", p);
+        })
+    })
+    .await
+    .map_err(|e| crate::error::AppError::Other(e.to_string()))?
+}
+
+/// Pure header/footer stamping core (no Tauri runtime). `progress` receives
+/// each step so the command wrapper can forward it; tests pass a no-op.
+pub fn header_footer_core(
+    path: String,
+    options: HeaderFooterOptions,
+    output: Option<String>,
+    progress: impl Fn(Progress),
+) -> AppResult<HeaderFooterReport> {
     let opts = options;
-    let path_for_blocking = path.clone();
-    let output_for_blocking = output.clone();
     let filename = std::path::Path::new(&path)
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
 
-    tokio::task::spawn_blocking(move || -> AppResult<HeaderFooterReport> {
-        let mut doc = Document::load(&path_for_blocking)?;
+        let mut doc = Document::load(&path)?;
         let font_id = doc.add_object(dictionary! {
             "Type" => "Font",
             "Subtype" => "Type1",
@@ -138,10 +152,7 @@ pub async fn add_header_footer(
         let mut pages_stamped = 0usize;
 
         for (page_num, page_id) in &page_ids {
-            let _ = app_handle.emit(
-                "operation-progress",
-                Progress::new(*page_num as usize, total as usize, format!("Page {} of {}", page_num, total)),
-            );
+            progress(Progress::new(*page_num as usize, total as usize, format!("Page {} of {}", page_num, total)));
             if *page_num < start_page || *page_num > end_page { continue; }
 
             let (page_width, page_height) = {
@@ -298,14 +309,10 @@ pub async fn add_header_footer(
             pages_stamped += 1;
         }
 
-        let out = output_for_blocking
-            .unwrap_or_else(|| temp_output_path(&path_for_blocking, "header"));
+        let out = output.unwrap_or_else(|| temp_output_path(&path, "header"));
         doc.save(&out)?;
 
         Ok(HeaderFooterReport { output: out, pages_stamped })
-    })
-    .await
-    .map_err(|e| crate::error::AppError::Other(e.to_string()))?
 }
 
 #[tauri::command]
