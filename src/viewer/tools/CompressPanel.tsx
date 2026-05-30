@@ -306,7 +306,7 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
               message={progress.message}
             />
           ) : (
-            <Spinner />
+            <Spinner label={progress?.message} />
           )}
         </div>
       )}
