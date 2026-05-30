@@ -34,10 +34,6 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["binaries/gs"],
-    "resources": {
-      "binaries/gsdll64.dll": "gsdll64.dll"
-    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
