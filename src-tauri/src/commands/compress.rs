@@ -41,7 +41,7 @@ pub fn compress_core(
     path: String,
     output: Option<String>,
     level: Option<u8>,
-    progress: impl Fn(Progress),
+    progress: impl Fn(Progress) + Send + Sync,
 ) -> AppResult<CompressResult> {
     let input_bytes = fs::read(&path)?;
     let original_bytes = input_bytes.len() as u64;
