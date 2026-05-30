@@ -58,24 +58,31 @@ pub fn dedup(
     // Deterministic canonical = lowest object number.
     objects.sort_by_key(|(id, _)| *id);
 
-    let serialized: Vec<Vec<u8>> = objects.iter().map(|(_, o)| serialize(o)).collect();
-
-    // hash -> indices of canonical objects sharing that hash (collision-safe:
-    // we compare full bytes before merging).
-    let mut buckets: HashMap<u64, Vec<usize>> = HashMap::new();
+    // hash -> canonical (index, serialized bytes). We retain bytes only for the
+    // *canonical* of each group and drop duplicate bytes immediately, so peak
+    // memory stays near the deduped size rather than ~2x the whole document.
+    // Full-bytes comparison within a bucket makes hash collisions harmless.
+    let mut buckets: HashMap<u64, Vec<(usize, Vec<u8>)>> = HashMap::new();
     let mut remap: HashMap<ObjectId, ObjectId> = HashMap::new();
     let mut keep = vec![true; objects.len()];
 
     for i in 0..objects.len() {
-        let key = hash_bytes(&serialized[i]);
+        let bytes = serialize(&objects[i].1);
+        let key = hash_bytes(&bytes);
         let bucket = buckets.entry(key).or_default();
-        let matched = bucket.iter().copied().find(|&c| serialized[c] == serialized[i]);
+        let mut matched = None;
+        for (c, cbytes) in bucket.iter() {
+            if *cbytes == bytes {
+                matched = Some(*c);
+                break;
+            }
+        }
         match matched {
             Some(c) => {
                 remap.insert(objects[i].0, objects[c].0);
                 keep[i] = false;
             }
-            None => bucket.push(i),
+            None => bucket.push((i, bytes)),
         }
     }
 
