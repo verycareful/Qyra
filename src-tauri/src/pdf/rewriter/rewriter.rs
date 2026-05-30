@@ -200,6 +200,9 @@ impl Rewriter {
             }
         }
 
+        // Drop objects unreachable from the trailer (orphaned fonts/images/etc.).
+        let live = crate::pdf::rewriter::gc::gc(live, &out_trailer);
+
         // Preferred path: object streams + xref stream.
         let objstm_bytes = {
             let mut w = PdfWriter::new();
