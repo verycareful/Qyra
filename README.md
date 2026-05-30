@@ -19,6 +19,7 @@
 </p>
 
 <p>
+  <a href="https://github.com/zParik/Qyra/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/test.yml?branch=main&style=flat-square&labelColor=0d0d0e&label=tests&cacheSeconds=300" alt="Tests"/></a>
   <a href="https://github.com/zParik/Qyra/actions/workflows/build-windows.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-windows.yml?style=flat-square&labelColor=0d0d0e&label=windows&cacheSeconds=900" alt="Windows build"/></a>
   <a href="https://github.com/zParik/Qyra/actions/workflows/build-linux.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-linux.yml?style=flat-square&labelColor=0d0d0e&label=linux&cacheSeconds=900" alt="Linux build"/></a>
   <a href="https://github.com/zParik/Qyra/actions/workflows/build-macos.yml"><img src="https://img.shields.io/github/actions/workflow/status/zParik/Qyra/build-macos.yml?style=flat-square&labelColor=0d0d0e&label=macos&cacheSeconds=900" alt="macOS build"/></a>
