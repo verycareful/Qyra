@@ -310,6 +310,31 @@ function manyObjects() {
   return buildPdf(o, `/Root 1 0 R`);
 }
 
+// ── repeated-objects.pdf — 40 byte-identical link annotations (dedup win) ───
+function repeatedObjects() {
+  const o = new Map();
+  o.set(1, enc(`<< /Type /Catalog /Pages 2 0 R >>`));
+  const refs = [];
+  let id = 10;
+  for (let i = 0; i < 40; i++) {
+    const aid = id++;
+    refs.push(`${aid} 0 R`);
+    o.set(
+      aid,
+      enc(
+        `<< /Type /Annot /Subtype /Link /Rect [10 10 50 30] /Border [0 0 0] ` +
+          `/A << /S /URI /URI (https://example.com/same) >> >>`,
+      ),
+    );
+  }
+  o.set(
+    3,
+    enc(`<< /Type /Page /Parent 2 0 R /MediaBox ${LETTER} /Annots [${refs.join(" ")}] >>`),
+  );
+  o.set(2, enc(`<< /Type /Pages /Kids [3 0 R] /Count 1 >>`));
+  return buildPdf(o, `/Root 1 0 R`);
+}
+
 const FIXTURES = {
   "simple.pdf": simple,
   "text.pdf": text,
@@ -320,6 +345,7 @@ const FIXTURES = {
   "annotated.pdf": annotated,
   "scanned.pdf": scanned,
   "many-objects.pdf": manyObjects,
+  "repeated-objects.pdf": repeatedObjects,
 };
 
 // A valid 1x1 red PNG, built with correct chunk CRCs — input for images_to_pdf.
