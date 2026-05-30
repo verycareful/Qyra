@@ -25,6 +25,22 @@ pub async fn add_watermark(
     app_handle: tauri::AppHandle,
 ) -> AppResult<String> {
     tokio::task::spawn_blocking(move || -> AppResult<String> {
+        watermark_core(path, options, output, |p| {
+            let _ = app_handle.emit("operation-progress", p);
+        })
+    })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
+}
+
+/// Pure watermarking core (no Tauri runtime). `progress` is invoked with each
+/// step so the command wrapper can forward it as an event; tests pass a no-op.
+pub fn watermark_core(
+    path: String,
+    options: WatermarkOptions,
+    output: Option<String>,
+    progress: impl Fn(Progress),
+) -> AppResult<String> {
         let out = output.unwrap_or_else(|| temp_output_path(&path, "watermarked"));
         let mut doc = Document::load(&path)?;
 
@@ -56,10 +72,7 @@ pub async fn add_watermark(
         let total_to_mark = pages_to_mark.len();
 
         for (idx, &page_id) in pages_to_mark.iter().enumerate() {
-            let _ = app_handle.emit(
-                "operation-progress",
-                Progress::new(idx, total_to_mark + 1, format!("Watermarking page {} / {}", idx + 1, total_to_mark)),
-            );
+            progress(Progress::new(idx, total_to_mark + 1, format!("Watermarking page {} / {}", idx + 1, total_to_mark)));
             let (pw, ph) = get_page_dims(&doc, page_id);
 
             let mut gs = Dictionary::new();
@@ -90,15 +103,9 @@ pub async fn add_watermark(
             patch_page(&mut doc, patch.page_id, patch.gs_id, patch.font_id, patch.content_id)?;
         }
 
-        let _ = app_handle.emit(
-            "operation-progress",
-            Progress::new(total_to_mark, total_to_mark + 1, "Saving PDF"),
-        );
+        progress(Progress::new(total_to_mark, total_to_mark + 1, "Saving PDF"));
         doc.save(&out)?;
         Ok(out)
-    })
-    .await
-    .map_err(|e| AppError::Other(e.to_string()))?
 }
 
 // ── content stream ────────────────────────────────────────────────────────────
