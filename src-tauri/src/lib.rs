@@ -325,6 +325,7 @@ pub fn run() {
             split::split_pdf_per_page,
             split::split_pdf_by_bookmarks,
             compress::compress_pdf,
+            compress::cancel_compress,
             compress_gs::compress_pdf_gs,
             compress_gs::compress_pdf_gs_parallel,
             rotate::rotate_pages,

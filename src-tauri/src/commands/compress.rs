@@ -1,4 +1,5 @@
 use std::fs;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
 use tauri::Emitter;
@@ -7,6 +8,16 @@ use crate::pdf::{PdfError, Rewriter};
 use crate::utils::paths::temp_output_path;
 use crate::utils::progress::Progress;
 use crate::error::{AppError, AppResult};
+
+/// Process-global cancel flag for the Native compressor. The frontend calls
+/// `cancel_compress` to set it; the rewriter checks it between objects/phases.
+static COMPRESS_CANCEL: AtomicBool = AtomicBool::new(false);
+
+/// Signal the in-flight Native compression (if any) to abort.
+#[tauri::command]
+pub fn cancel_compress() {
+    COMPRESS_CANCEL.store(true, Ordering::Relaxed);
+}
 
 #[derive(Serialize)]
 pub struct CompressResult {
@@ -43,19 +54,27 @@ pub fn compress_core(
     level: Option<u8>,
     progress: impl Fn(Progress) + Send + Sync,
 ) -> AppResult<CompressResult> {
+    // Fresh run — clear any stale cancel signal.
+    COMPRESS_CANCEL.store(false, Ordering::Relaxed);
+
     let input_bytes = fs::read(&path)?;
     let original_bytes = input_bytes.len() as u64;
 
     let rewriter = Rewriter::new(level.unwrap_or(0));
 
     let output_bytes = rewriter
-        .run(input_bytes, |current, total, msg| {
-            progress(Progress::new(current, total, msg));
-        })
+        .run(
+            input_bytes,
+            |current, total, msg| {
+                progress(Progress::new(current, total, msg));
+            },
+            &COMPRESS_CANCEL,
+        )
         .map_err(|e| match e {
             PdfError::EncryptedDocument => {
                 AppError::Invalid("Cannot compress encrypted PDF. Please unlock it first.".to_string())
             }
+            PdfError::Cancelled => AppError::Other("Compression cancelled".to_string()),
             other => AppError::Pdf(other.to_string()),
         })?;
 

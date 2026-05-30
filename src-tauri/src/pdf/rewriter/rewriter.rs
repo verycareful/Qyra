@@ -8,7 +8,7 @@
 /// directly inside the parallel transform, avoiding O(n²) scan_for_endstream
 /// and the 138 MB worth of sequential clone allocations.
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use rayon::prelude::*;
@@ -36,6 +36,7 @@ impl Rewriter {
         &self,
         input_bytes: Vec<u8>,
         progress_cb: impl Fn(usize, usize, &str) + Send + Sync,
+        cancel: &AtomicBool,
     ) -> Result<Vec<u8>, PdfError> {
         // ---------------------------------------------------------------
         // Pass 1: parse xref + eagerly unpack all ObjStm streams.
@@ -124,6 +125,9 @@ impl Rewriter {
         let transformed: Vec<(ObjectId, Result<PdfObject, PdfError>)> = work
             .into_par_iter()
             .map(|(id, entry)| {
+                if cancel.load(Ordering::Relaxed) {
+                    return (id, Ok(PdfObject::Null));
+                }
                 let obj = match entry {
                     XrefEntry::InUse { offset } => {
                         // Bound slice to [offset, next_object_offset] so any
@@ -168,6 +172,10 @@ impl Rewriter {
                 (id, result)
             })
             .collect();
+
+        if cancel.load(Ordering::Relaxed) {
+            return Err(PdfError::Cancelled);
+        }
 
         // ---------------------------------------------------------------
         // Pass 2b: collect live objects, then write with object streams

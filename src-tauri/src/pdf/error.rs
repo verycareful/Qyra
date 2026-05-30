@@ -14,6 +14,7 @@ pub enum PdfError {
     WriteError(String),
     UnexpectedEof,
     ParseError(String),
+    Cancelled,
 }
 
 impl std::fmt::Display for PdfError {
@@ -36,6 +37,7 @@ impl std::fmt::Display for PdfError {
             PdfError::WriteError(msg) => write!(f, "Write error: {}", msg),
             PdfError::UnexpectedEof => write!(f, "Unexpected end of file"),
             PdfError::ParseError(msg) => write!(f, "Parse error: {}", msg),
+            PdfError::Cancelled => write!(f, "Cancelled"),
         }
     }
 }
