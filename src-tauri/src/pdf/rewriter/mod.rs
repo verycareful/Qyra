@@ -1,4 +1,5 @@
 pub mod config;
+pub mod dedup;
 pub mod rewriter;
 pub mod transforms;
 
