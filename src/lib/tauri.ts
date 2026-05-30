@@ -31,6 +31,9 @@ export const splitPdfByBookmarks = (path: string, outputDir?: string) =>
 export const compressPdf = (path: string, output?: string, level?: number) =>
   invoke<CompressResult>("compress_pdf", { path, output, level });
 
+/** Signal the in-flight Native (Rust) compression to abort. */
+export const cancelCompress = () => invoke<void>("cancel_compress");
+
 export type GsPreset = "screen" | "ebook" | "printer" | "prepress";
 export interface GsCompressResult {
   path: string;

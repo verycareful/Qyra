@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { LoadedFile } from "../../store/useAppStore";
 import { ProgressBar, Spinner } from "../../components/ProgressBar";
-import { compressPdf, compressPdfGs, compressPdfGsParallel, type GsPreset } from "../../lib/tauri";
+import { compressPdf, compressPdfGs, compressPdfGsParallel, cancelCompress, type GsPreset } from "../../lib/tauri";
 import { isAndroid } from "../../lib/androidFileUtils";
 import { loadSetting, Settings } from "../../lib/settings";
 import { sanitizeError, type ProgressData } from "../usePanelCommand";
@@ -104,7 +104,12 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
       setSizes({ original: result.original_bytes, compressed: result.compressed_bytes });
       onApplied(result.path);
     } catch (e) {
-      setError(sanitizeError(e));
+      // User-initiated cancel is not an error.
+      if (/cancel/i.test(String(e))) {
+        setError(null);
+      } else {
+        setError(sanitizeError(e));
+      }
     } finally {
       setIsProcessing(false);
       setProgress(null);
@@ -325,6 +330,15 @@ export function CompressPanel({ file, onApplied }: CompressPanelProps) {
             />
           ) : (
             <Spinner label={progress?.message} />
+          )}
+          {engine === "rust" && (
+            <button
+              className="v-btn-secondary"
+              style={{ marginTop: 8, width: "auto", padding: "0 16px" }}
+              onClick={() => { void cancelCompress(); }}
+            >
+              Cancel
+            </button>
           )}
         </div>
       )}
