@@ -44,6 +44,7 @@ impl Rewriter {
         eprintln!("[compress] Pass 1: parsing xref + unpacking ObjStm streams…");
         let mut reader = PdfReader::new(input_bytes)?;
         let trailer = reader.trailer().clone();
+        let expected_pages = reader.pages().map(|p| p.len()).unwrap_or(0);
 
         let mut all_ids: Vec<ObjectId> = reader.all_object_ids();
         all_ids.sort_unstable();
@@ -166,37 +167,67 @@ impl Rewriter {
             .collect();
 
         // ---------------------------------------------------------------
-        // Pass 2b: write results sequentially (PdfWriter is not Send).
+        // Pass 2b: collect live objects, then write with object streams
+        // (validated) or fall back to a classic xref table.
         // ---------------------------------------------------------------
         #[cfg(debug_assertions)]
         eprintln!("[compress] Pass 2b: writing {} objects…", work_total);
-        let mut writer = PdfWriter::new();
-        writer.write_header();
 
-        for (i, (id, result)) in transformed.into_iter().enumerate() {
-            let obj = result?;
-            if matches!(obj, PdfObject::Null) {
-                continue;
-            }
-            writer.write_object(id, &obj)?;
-
-            if i % 500 == 0 || i + 1 == work_total {
-                #[cfg(debug_assertions)]
-                eprintln!("[compress] {}/{} objects written", i + 1, work_total);
-            }
-            progress_cb(i + 1, work_total, "Writing objects");
-        }
+        let live: Vec<(ObjectId, PdfObject)> = transformed
+            .into_iter()
+            .filter_map(|(id, r)| match r {
+                Ok(PdfObject::Null) => None,
+                Ok(obj) => Some(Ok((id, obj))),
+                Err(e) => Some(Err(e)),
+            })
+            .collect::<Result<Vec<_>, PdfError>>()?;
+        progress_cb(work_total, work_total, "Writing objects");
 
         let mut out_trailer = trailer;
         out_trailer.remove(b"Encrypt");
         out_trailer.remove(b"XRefStm");
+        out_trailer.remove(b"Prev");
         if self.config.strip_metadata {
             out_trailer.remove(b"Info");
             out_trailer.remove(b"Metadata");
         }
 
-        writer.write_xref_and_trailer(out_trailer)?;
-        let result = writer.finish();
+        // Preferred path: object streams + xref stream.
+        let objstm_bytes = {
+            let mut w = PdfWriter::new();
+            w.write_header();
+            match w.write_with_object_streams(live.clone(), out_trailer.clone()) {
+                Ok(()) => Some(w.finish()),
+                Err(_e) => {
+                    #[cfg(debug_assertions)]
+                    eprintln!("[compress] object-stream write failed: {_e}; falling back");
+                    None
+                }
+            }
+        };
+
+        // Validate by re-parsing; page count must match the input.
+        let validated = objstm_bytes.and_then(|bytes| match PdfReader::new(bytes.clone()) {
+            Ok(mut r) => match r.pages() {
+                Ok(p) if p.len() == expected_pages => Some(bytes),
+                _ => None,
+            },
+            Err(_) => None,
+        });
+
+        let result = match validated {
+            Some(bytes) => bytes,
+            None => {
+                // Fallback: classic cross-reference table.
+                let mut w = PdfWriter::new();
+                w.write_header();
+                for (id, obj) in &live {
+                    w.write_object(*id, obj)?;
+                }
+                w.write_xref_and_trailer(out_trailer)?;
+                w.finish()
+            }
+        };
         #[cfg(debug_assertions)]
         eprintln!("[compress] done — {} bytes out", result.len());
         Ok(result)
